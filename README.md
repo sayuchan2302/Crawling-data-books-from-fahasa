@@ -1,79 +1,54 @@
-# 📚 FAHASA WEB SCRAPER - DỰ ÁN HOÀN THÀNH
+# 📚 Fahasa Web Scraper
 
-Project thu thập dữ liệu sách từ Fahasa.com với **25 trường dữ liệu** đầy đủ.
+Automated data collection system for Fahasa.com with 25 comprehensive data fields.
 
-## 🚀 CÁCH SỬ DỤNG NHANH
+## ⚡ Quick Start
 
 ```bash
-# Thu thập sách (3 sách mỗi lần)
+# Install dependencies
+pip install -r requirements.txt
+
+# Start scraping
 python fahasa_optimized.py
 
-# Xem báo cáo chi tiết
+# View results
 python final_summary.py
-
-# Kiểm tra hệ thống
-python final_test.py
-
-# Sửa dữ liệu thiếu
-python fix_data.py
 ```
 
-## 📁 CẤU TRÚC PROJECT
+## 📁 Project Structure
 
-### 🚀 Scripts Chính
-- `fahasa_optimized.py` - **Script chính** thu thập sách 
-- `fahasa_database.py` - Quản lý database SQLite
-- `fix_data.py` - Sửa dữ liệu thiếu/bị lỗi
+**Core Scripts:**
+- `fahasa_optimized.py` - Main scraping engine
+- `fahasa_database.py` - SQLite database manager  
+- `fix_data.py` - Data quality improvement
 
-### 📊 Báo Cáo & Kiểm Tra  
-- `final_summary.py` - Báo cáo tổng kết chi tiết
-- `final_test.py` - Kiểm tra toàn bộ hệ thống
+**Analysis & Reports:**
+- `final_summary.py` - Comprehensive data analysis
+- `final_test.py` - System validation
 
-### 🗄️ Dữ Liệu
-- `fahasa_books.db` - Database SQLite chính (25 trường)
-- `*.xlsx` - Files Excel tự động tạo 
-- `*.json` - Files JSON backup
+**Output Files:**
+- `fahasa_all_books.json` - Consolidated JSON data
+- `fahasa_all_books.xlsx` - Excel export
+- `fahasa_books.db` - SQLite database (25 fields)
 
-### 💾 Backup
-- `fahasa_selenium_scraper.py` - Script toàn diện (backup)
+## 🎯 Features
 
-## 🎯 THÀNH TỰU ĐẠT ĐƯỢC
+✅ **25 Data Fields** - Complete book information  
+✅ **Price Extraction** - 100% success rate with CloudFlare bypass  
+✅ **File Consolidation** - Single JSON/Excel output  
+✅ **Duplicate Prevention** - Smart data merging  
+✅ **Quality Assurance** - Automated data validation
 
-✅ **Database đầy đủ** - 25 trường dữ liệu  
-✅ **Thu thập giá 100%** - Bypass CloudFlare thành công  
-✅ **Xuất Excel/JSON** - Tự động sau mỗi lần chạy  
-✅ **Hệ thống ổn định** - Selenium automation hoàn hảo  
-✅ **Sẵn sàng mở rộng** - Thu thập quy mô lớn
+## � Technical Specifications
 
-## 💰 KẾT QUẢ THU THẬP
+- **Technology Stack:** Python 3.12, Selenium WebDriver
+- **Database:** SQLite with 25-field schema
+- **Export Formats:** JSON, Excel, Database
+- **Anti-Detection:** CloudFlare bypass capabilities
 
-- **13+ cuốn sách** đã thu thập
-- **Giá từ 14,000 - 184,500 VNĐ**
-- **Tỷ lệ thành công: 100%**
-- **Database hoàn chỉnh** với đầy đủ thông tin
-# 2. Xác định các selector CSS cho:
-#    - Danh sách sản phẩm
-#    - Chi tiết sản phẩm
-#    - Phân trang
+## ⚠️ Usage Guidelines
 
-### Bước 3: Tạo và chạy script
-# 1. Chạy file scipt.py đã tạo
-# 2. Điều chỉnh các selector nếu cần
-
-### Bước 4: Kiểm tra và tối ưu
-# 1. Kiểm tra dữ liệu thu thập được
-# 2. Điều chỉnh delay time để tránh bị block
-# 3. Thêm proxy nếu cần
-
-### Bước 5: Lưu trữ và xử lý dữ liệu
-# 1. Lưu vào CSV, JSON, hoặc database
-# 2. Làm sạch và chuẩn hóa dữ liệu
-
-## Lưu ý quan trọng:
-# - Tuân thủ robots.txt của website
-# - Không gửi quá nhiều request trong thời gian ngắn
-# - Tôn trọng chính sách sử dụng của website
-# - Sử dụng dữ liệu có trách nhiệm
-
-## Để chạy script:
-# python scipt.py
+- Respect website terms of service
+- Implement appropriate request delays
+- Use data responsibly
+- Follow robots.txt guidelines
