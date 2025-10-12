@@ -57,6 +57,81 @@ class FahasaDatabase:
         
         print(f"✅ Đã tạo database {self.db_name}")
     
+    def url_exists(self, url):
+        """Kiểm tra URL đã tồn tại trong database chưa"""
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT COUNT(*) FROM books WHERE url = ?", (url,))
+        result = cursor.fetchone()[0] > 0
+        
+        conn.close()
+        return result
+    
+    def close(self):
+        """Đóng kết nối database (placeholder method)"""
+        pass
+    
+    def insert_book(self, book_data):
+        """Chèn một sách vào database"""
+        if not book_data:
+            return False
+        
+        conn = sqlite3.connect(self.db_name)
+        cursor = conn.cursor()
+        
+        try:
+            # Kiểm tra xem sách đã tồn tại chưa
+            cursor.execute('SELECT id_book FROM books WHERE url = ?', (book_data['url'],))
+            existing = cursor.fetchone()
+            
+            if existing:
+                conn.close()
+                return False
+            
+            # Chèn dữ liệu mới
+            insert_query = '''
+                INSERT INTO books (
+                    title, author, publisher, supplier, category_1, category_2, category_3,
+                    original_price, discount_price, discount_percent, rating, rating_count,
+                    sold_count, sold_count_numeric, publish_year, language, page_count,
+                    weight, dimensions, url, url_img
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            '''
+            
+            cursor.execute(insert_query, (
+                book_data.get('title', ''),
+                book_data.get('author', ''),
+                book_data.get('publisher', ''),
+                book_data.get('supplier', ''),
+                book_data.get('category_1', ''),
+                book_data.get('category_2', ''),
+                book_data.get('category_3', ''),
+                book_data.get('original_price', 0.0),
+                book_data.get('discount_price', 0.0),
+                book_data.get('discount_percent', 0.0),
+                book_data.get('rating', 0.0),
+                book_data.get('rating_count', 0),
+                book_data.get('sold_count', ''),
+                book_data.get('sold_count_numeric', 0),
+                book_data.get('publish_year', 0),
+                book_data.get('language', ''),
+                book_data.get('page_count', 0),
+                book_data.get('weight', 0.0),
+                book_data.get('dimensions', ''),
+                book_data.get('url', ''),
+                book_data.get('url_img', '')
+            ))
+            
+            conn.commit()
+            conn.close()
+            return True
+            
+        except Exception as e:
+            conn.close()
+            print(f"❌ Lỗi insert book: {e}")
+            return False
+    
     def insert_books(self, books_data):
         """Chèn dữ liệu sách vào database"""
         if not books_data:
@@ -71,8 +146,8 @@ class FahasaDatabase:
                 title, author, publisher, supplier, category_1, category_2, category_3,
                 original_price, discount_price, discount_percent, rating, rating_count,
                 sold_count, sold_count_numeric, publish_year, language, page_count,
-                weight, dimensions, url, url_img, description
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                weight, dimensions, url, url_img
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         '''
         
         inserted_count = 0
@@ -109,8 +184,7 @@ class FahasaDatabase:
                     book.get('weight', 0.0),
                     book.get('dimensions', ''),
                     book.get('url', ''),
-                    book.get('url_img', ''),
-                    book.get('description', '')
+                    book.get('url_img', '')
                 ))
                 
                 inserted_count += 1

@@ -1,6 +1,6 @@
 # 📚 Fahasa Web Scraper
 
-Automated data collection system for Fahasa.com with 25 comprehensive data fields.
+Professional book data collection system for Fahasa.com with automated data enrichment and 21 comprehensive fields.
 
 ## ⚡ Quick Start
 
@@ -8,47 +8,58 @@ Automated data collection system for Fahasa.com with 25 comprehensive data field
 # Install dependencies
 pip install -r requirements.txt
 
-# Start scraping
-python fahasa_optimized.py
-
-# View results
-python final_summary.py
+# Run complete scraping workflow
+python fahasa_bulk_scraper.py
 ```
+
+**Result:** Automatic data collection → quality enhancement → export to 3 formats
 
 ## 📁 Project Structure
 
-**Core Scripts:**
-- `fahasa_optimized.py` - Main scraping engine
-- `fahasa_database.py` - SQLite database manager  
-- `fix_data.py` - Data quality improvement
+### 🚀 **Core System:**
+- `fahasa_bulk_scraper.py` - **Main scraper** with auto-fix & export
+- `fahasa_database.py` - SQLite database management
+- `requirements.txt` - Python dependencies
 
-**Analysis & Reports:**
-- `final_summary.py` - Comprehensive data analysis
-- `final_test.py` - System validation
+### 📊 **Output Files:**
+- `fahasa_complete_books.csv` - Excel-ready CSV format
+- `fahasa_complete_books.json` - JSON for development
+- `fahasa_complete_books.xlsx` - Native Excel file
+- `fahasa_books.db` - SQLite database (21 fields)
 
-**Output Files:**
-- `fahasa_all_books.json` - Consolidated JSON data
-- `fahasa_all_books.xlsx` - Excel export
-- `fahasa_books.db` - SQLite database (25 fields)
+## 🎯 Key Features
 
-## 🎯 Features
+✅ **21 Essential Fields** - No unnecessary description field  
+✅ **Smart Auto-Fix** - Fills missing publisher, supplier, ratings automatically  
+✅ **Pagination Support** - Handles 1000+ pages efficiently  
+✅ **100% Data Quality** - No empty fields or zero values  
+✅ **One-Command Workflow** - Single script does everything  
+✅ **CloudFlare Bypass** - Reliable data extraction  
 
-✅ **25 Data Fields** - Complete book information  
-✅ **Price Extraction** - 100% success rate with CloudFlare bypass  
-✅ **File Consolidation** - Single JSON/Excel output  
-✅ **Duplicate Prevention** - Smart data merging  
-✅ **Quality Assurance** - Automated data validation
+## 🔧 Configuration
 
-## � Technical Specifications
+Edit `fahasa_bulk_scraper.py` to adjust collection scale:
 
-- **Technology Stack:** Python 3.12, Selenium WebDriver
-- **Database:** SQLite with 25-field schema
-- **Export Formats:** JSON, Excel, Database
-- **Anti-Detection:** CloudFlare bypass capabilities
+```python
+MAX_PAGES = 5       # Number of pages to scrape
+BOOKS_PER_PAGE = 24 # Books per page (Fahasa default)
+# Total: 5 × 24 = 120 books
+```
 
-## ⚠️ Usage Guidelines
+## 📊 Data Schema
 
-- Respect website terms of service
-- Implement appropriate request delays
+**21 Fields:** title, author, publisher, supplier, category_1-3, prices, rating, sales data, physical specs, URLs
+
+## 🚀 Technical Stack
+
+- **Python 3.12** + Selenium WebDriver
+- **SQLite** database with smart data validation
+- **Pandas** for data processing and export
+- **Anti-detection** capabilities for reliable scraping
+
+## ⚠️ Best Practices
+
+- Start with small page counts for testing
+- Respect website rate limits
 - Use data responsibly
-- Follow robots.txt guidelines
+- Check output quality before large-scale runs
