@@ -14,6 +14,9 @@ from fahasa_database import FahasaDatabase
 import time
 import random
 import json
+import pandas as pd
+from datetime import datetime
+import json
 import re
 import os
 import sqlite3
@@ -235,7 +238,8 @@ def get_book_details(driver, url):
             'weight': 0.0,
             'dimensions': '',
             'url': url,
-            'url_img': ''
+            'url_img': '',
+            'time_collect': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
         
         # Lấy breadcrumb (category)
@@ -334,7 +338,7 @@ def scrape_fahasa_bulk(max_pages=5, books_per_page=24):
     print(f"📊 Mục tiêu: {max_pages} trang x {books_per_page} sách = tối đa {max_pages * books_per_page} sách")
     print("=" * 60)
     
-    # Chrome setup
+    # Chrome setup với multiple fallback options
     chrome_options = Options()
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')
@@ -342,10 +346,37 @@ def scrape_fahasa_bulk(max_pages=5, books_per_page=24):
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
     chrome_options.add_experimental_option('useAutomationExtension', False)
     
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=chrome_options)
-    driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-    driver.set_page_load_timeout(30)
+    # Thử setup ChromeDriver với error handling
+    driver = None
+    try:
+        print("🔧 Đang setup ChromeDriver...")
+        
+        # Thử method 1: ChromeDriverManager
+        try:
+            service = Service(ChromeDriverManager().install())
+            driver = webdriver.Chrome(service=service, options=chrome_options)
+        except Exception as e1:
+            print(f"⚠️ Method 1 failed: {str(e1)[:100]}...")
+            
+            # Thử method 2: System PATH
+            try:
+                driver = webdriver.Chrome(options=chrome_options)
+            except Exception as e2:
+                print(f"⚠️ Method 2 failed: {str(e2)[:100]}...")
+                raise Exception("Không thể khởi tạo ChromeDriver")
+        
+        driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+        driver.set_page_load_timeout(30)
+        print("✅ ChromeDriver setup thành công!")
+        
+    except Exception as e:
+        print(f"❌ Lỗi ChromeDriver: {e}")
+        print("💡 Giải pháp:")
+        print("   1. Chạy: python quick_test.py (test không cần Chrome)")
+        print("   2. Restart máy tính và thử lại")
+        print("   3. Cập nhật Chrome browser")
+        print("   4. Kiểm tra antivirus không block chromedriver")
+        return
     
     # Khởi tạo database
     db = FahasaDatabase()
@@ -481,11 +512,11 @@ def scrape_fahasa_bulk(max_pages=5, books_per_page=24):
         print("🔚 Đóng trình duyệt")
 
 if __name__ == "__main__":
-    # CẤU HÌNH THU THẬP - TEST
-    MAX_PAGES = 1      # Test với 1 trang trước
-    BOOKS_PER_PAGE = 3 # Test với 3 sách
-    
-    print("⚙️  CẤU HÌNH TEST:")
+    # CẤU HÌNH THU THẬP
+    MAX_PAGES = 1
+    BOOKS_PER_PAGE = 3
+
+    print("⚙️  CẤU HÌNH:")
     print(f"   📄 Số trang: {MAX_PAGES}")
     print(f"   📚 Sách/trang: {BOOKS_PER_PAGE}")
     print(f"   🎯 Tối đa: {MAX_PAGES * BOOKS_PER_PAGE} sách")

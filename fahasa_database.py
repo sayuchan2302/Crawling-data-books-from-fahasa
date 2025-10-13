@@ -38,7 +38,7 @@ class FahasaDatabase:
                 dimensions TEXT,
                 url TEXT,
                 url_img TEXT,
-                description TEXT,
+                time_collect DATETIME,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -95,8 +95,8 @@ class FahasaDatabase:
                     title, author, publisher, supplier, category_1, category_2, category_3,
                     original_price, discount_price, discount_percent, rating, rating_count,
                     sold_count, sold_count_numeric, publish_year, language, page_count,
-                    weight, dimensions, url, url_img
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    weight, dimensions, url, url_img, time_collect
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             '''
             
             cursor.execute(insert_query, (
@@ -120,7 +120,8 @@ class FahasaDatabase:
                 book_data.get('weight', 0.0),
                 book_data.get('dimensions', ''),
                 book_data.get('url', ''),
-                book_data.get('url_img', '')
+                book_data.get('url_img', ''),
+                book_data.get('time_collect', '')
             ))
             
             conn.commit()
@@ -146,8 +147,8 @@ class FahasaDatabase:
                 title, author, publisher, supplier, category_1, category_2, category_3,
                 original_price, discount_price, discount_percent, rating, rating_count,
                 sold_count, sold_count_numeric, publish_year, language, page_count,
-                weight, dimensions, url, url_img
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                weight, dimensions, url, url_img, time_collect
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         '''
         
         inserted_count = 0
@@ -184,7 +185,8 @@ class FahasaDatabase:
                     book.get('weight', 0.0),
                     book.get('dimensions', ''),
                     book.get('url', ''),
-                    book.get('url_img', '')
+                    book.get('url_img', ''),
+                    book.get('time_collect', '')
                 ))
                 
                 inserted_count += 1
