@@ -258,15 +258,6 @@ fact_book_sales_columns = [
         'ex': 'TRUE'
     },
     {
-        'field_name': 'is_out_of_stock',
-        'key': '',
-        'data_type': 'BOOLEAN',
-        'constraints': '',
-        'default': 'FALSE',
-        'description': 'Hết hàng?',
-        'ex': 'FALSE'
-    },
-    {
         'field_name': 'url_path',
         'key': '',
         'data_type': 'VARCHAR(500)',
@@ -557,15 +548,6 @@ dim_product_columns = [
         'ex': 'Đắc Nhân Tâm'
     },
     {
-        'field_name': 'isbn',
-        'key': '',
-        'data_type': 'VARCHAR(20)',
-        'constraints': '',
-        'default': '',
-        'description': 'Mã ISBN',
-        'ex': '8935086855362'
-    },
-    {
         'field_name': 'publish_year',
         'key': '',
         'data_type': 'INTEGER',
@@ -611,15 +593,6 @@ dim_product_columns = [
         'ex': '14x20.5cm'
     },
     {
-        'field_name': 'book_format',
-        'key': '',
-        'data_type': 'VARCHAR(50)',
-        'constraints': '',
-        'default': '',
-        'description': 'Hình thức (bìa cứng/mềm)',
-        'ex': 'Bìa mềm'
-    },
-    {
         'field_name': 'image_url',
         'key': '',
         'data_type': 'VARCHAR(500)',
@@ -636,15 +609,6 @@ dim_product_columns = [
         'default': '',
         'description': 'URL trang chi tiết sản phẩm',
         'ex': 'https://fahasa.com/dac-nhan-tam.html'
-    },
-    {
-        'field_name': 'description',
-        'key': '',
-        'data_type': 'TEXT',
-        'constraints': '',
-        'default': '',
-        'description': 'Mô tả sản phẩm',
-        'ex': 'Đắc nhân tâm của Dale Carnegie...'
     },
     {
         'field_name': 'effective_date',
