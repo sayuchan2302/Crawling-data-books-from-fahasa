@@ -1,25 +1,26 @@
-# ��� Fahasa Book Scraper & Data Warehouse
+# 📚 Fahasa Book Scraper & Data Warehouse
 
-Web scraping project for Fahasa.com with Star Schema Data Warehouse design.
+Web scraping project for Fahasa.com with a professional Data Warehouse pipeline (PostgreSQL, Star Schema).
 
-## ��� Quick Start
+## 🚀 Quick Start
 
 ```bash
 pip install -r requirements.txt
-python fahasa_bulk_scraper.py
+python src/crawler/fahasa_bulk_scraper.py
 ```
 
 ## ✨ Features
 
-- Selenium scraper with 98.7% success rate
-- 22 data fields per book (title, author, price, rating, etc.)
-- Star Schema DW (1 Fact + 6 Dimensions + 2 Logs)
-- Auto-fix algorithm for data quality (95.3% completeness)
-- Multi-format export: JSON, CSV, Excel, SQLite
+- Selenium scraper: crawl real data from Fahasa.com (no auto-fix, no fake fields)
+- 22+ data fields per book (title, author, price, rating, sold count, etc.)
+- Directly insert to PostgreSQL staging table (no SQLite, no local data files)
+- Star Schema Data Warehouse (1 Fact + 6 Dimensions + 2 Logs)
+- ETL scripts: import, clean, and transform data for analytics
+- Multi-format export: JSON, CSV, Excel (optional)
 
-## ���️ Tech Stack
+## 🛠️ Tech Stack
 
-Python 3.12 • Selenium • Pandas • SQLite • BeautifulSoup4
+Python 3.12 • Selenium • Pandas • psycopg2 • PostgreSQL
 
 ---
 
