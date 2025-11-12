@@ -1,13 +1,9 @@
 import psycopg2
-
-# Cấu hình kết nối PostgreSQL
 PG_HOST = 'localhost'
 PG_PORT = 5432
-PG_USER = 'postgres'         
-PG_PASSWORD = '230204' 
-PG_DATABASE = 'fahasa_dw' 
-
-# Hàm kết nối
+PG_USER = 'postgres'
+PG_PASSWORD = '230204'
+PG_DATABASE = 'fahasa_dw'
 
 def get_pg_connection():
     return psycopg2.connect(
@@ -17,8 +13,6 @@ def get_pg_connection():
         password=PG_PASSWORD,
         dbname=PG_DATABASE
     )
-
-# Hàm insert 1 book vào staging_books
 
 def insert_book_staging(book_data):
     conn = get_pg_connection()
@@ -59,7 +53,6 @@ def insert_book_staging(book_data):
     cur.close()
     conn.close()
 
-# Hàm test kết nối PostgreSQL
 def test_pg_connection():
     try:
         conn = psycopg2.connect(
@@ -72,16 +65,14 @@ def test_pg_connection():
         cur = conn.cursor()
         cur.execute('SELECT version();')
         version = cur.fetchone()[0]
-        print(f'✅ Kết nối thành công! PostgreSQL version: {version}')
+        print(f'Kết nối thành công! PostgreSQL version: {version}')
         cur.close()
         conn.close()
     except Exception as e:
-        print(f'❌ Kết nối thất bại: {e}')
+        print(f'Kết nối thất bại: {e}')
 
-# Ví dụ sử dụng
 if __name__ == '__main__':
     test_pg_connection()
-    # Ví dụ dữ liệu 1 book
     book = {
         'title': 'Sách mẫu',
         'author': 'Tác giả A',
