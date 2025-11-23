@@ -13,8 +13,19 @@ from datetime import datetime
 import json
 import re
 import os
-import psycopg2
-from insert_staging_book import insert_book_staging
+# Remove MySQL import - we only create files now
+# Import CSV loader for auto-loading after crawl
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'etl'))
+from load_csv_to_staging import load_csv_to_staging
+
+# Import control logger
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'utils'))
+try:
+    from control_logger import logger, LogStatus, LogLevel
+except ImportError:
+    print("⚠️ Control logger not available - running without logging")
+    logger = None
 
 def extract_price_smart(price_text):
     
@@ -323,13 +334,21 @@ def get_book_details(driver, url):
         print(f"    Lỗi khi lấy chi tiết: {e}")
         return None
 
-def scrape_fahasa_bulk(max_pages=1, books_per_page=3):
-    
-    print("FAHASA BULK SCRAPER - THU THẬP QUY MÔ LỚN")
+def scrape_fahasa_bulk(target_books=100):
+    """
+    Crawl exact number of books specified
+    Args:
+        target_books: Number of books to crawl (default: 100)
+    """
+    print("FAHASA BULK SCRAPER - THU THẬP THEO SỐ SÁCH")
     print("=" * 60)
-    print(f"Mục tiêu: {max_pages} trang x {books_per_page} sách = tối đa {max_pages * books_per_page} sách")
+    print(f"Mục tiêu: {target_books} sách")
     print("=" * 60)
     
+    # Log crawl start
+    crawl_log_id = None
+    if logger:
+        crawl_log_id = logger.log_crawl_start(target_books)
     
     chrome_options = Options()
     chrome_options.add_argument('--no-sandbox')
@@ -371,31 +390,34 @@ def scrape_fahasa_bulk(max_pages=1, books_per_page=3):
         return
     
     books_data = []
-    total_collected = 0
+    collected_count = 0
+    page = 1
+    books_per_page = 24  # Fahasa default items per page
     
     try:
-        for page in range(1, max_pages + 1):
-            print(f"\nTRANG {page}/{max_pages}")
-            print("-" * 40)
+        while collected_count < target_books:
+            remaining = target_books - collected_count
+            print(f"\nTRANG {page} - CẦN THÊM {remaining} SÁCH")
+            print("-" * 50)
             
-            
+            # Build URL with appropriate limit
             url = f"https://www.fahasa.com/sach-trong-nuoc.html?order=num_orders&limit={books_per_page}&p={page}"
             print(f"Truy cập: {url}")
             
             driver.get(url)
-            time.sleep(random.uniform(3, 5))  # Random delay
+            time.sleep(random.uniform(3, 5))
             
-            
+            # Find products
             try:
                 products = WebDriverWait(driver, 15).until(
                     EC.presence_of_all_elements_located((By.CSS_SELECTOR, '.item-inner'))
                 )
                 print(f"Tìm thấy {len(products)} sản phẩm trong trang")
             except:
-                print("Không tìm thấy sản phẩm, bỏ qua trang này")
-                continue
+                print("Không tìm thấy sản phẩm, có thể hết dữ liệu")
+                break
             
-            
+            # Get product URLs
             product_urls = []
             for product in products:
                 try:
@@ -406,101 +428,148 @@ def scrape_fahasa_bulk(max_pages=1, books_per_page=3):
                 except:
                     continue
             
-            print(f"Sẽ thu thập {len(product_urls)} sách từ trang {page}")
+            if not product_urls:
+                print("Không tìm thấy URL sản phẩm hợp lệ")
+                break
             
+            # Limit products to collect based on remaining target
+            max_to_collect = min(len(product_urls), remaining)
+            product_urls = product_urls[:max_to_collect]
             
+            print(f"Sẽ thu thập tối đa {max_to_collect} sách từ trang {page}")
+            
+            # Collect book details
             page_success = 0
             for i, book_url in enumerate(product_urls, 1):
-                print(f"\nSách {i}/{len(product_urls)} (Trang {page}):")
+                if collected_count >= target_books:
+                    print(f"✅ ĐẠT MỤC TIÊU {target_books} SÁCH - DỪNG CRAWL")
+                    break
+                
+                print(f"\nSách {collected_count + 1}/{target_books}:")
                 
                 book_data = get_book_details(driver, book_url)
                 if book_data:
                     print(f"    {book_data['title'][:50]}...")
                     print(f"    Giá: {book_data['discount_price']:,.0f} VNĐ")
-                    try:
-                        insert_book_staging(book_data)
-                        print("    Đã insert vào staging_books (PostgreSQL)")
-                    except Exception as e:
-                        print(f"    Lỗi insert staging_books: {e}")
+                    print("    ✅ Collected")
                     books_data.append(book_data)
-                    total_collected += 1
+                    collected_count += 1
                     page_success += 1
                     time.sleep(random.uniform(2, 4))
                 else:
                     print(f"    Không lấy được dữ liệu hoặc không có giá")
+                
+                # Progress indicator
+                progress = (collected_count / target_books) * 100
+                print(f"    📊 Tiến độ: {collected_count}/{target_books} ({progress:.1f}%)")
             
-            print(f"\nKẾT QUẢ TRANG {page}: {page_success}/{len(product_urls)} sách thành công")
-            print(f"TỔNG CỘNG: {total_collected} sách")
+            print(f"\nKẾT QUẢ TRANG {page}: +{page_success} sách")
+            print(f"TỔNG ĐÃ THU THẬP: {collected_count}/{target_books} sách")
             
+            # Check if we reached target or no more books
+            if collected_count >= target_books:
+                print(f"🎯 HOÀN THÀNH MỤC TIÊU: {collected_count} sách!")
+                break
             
             if page_success == 0:
                 print("Không thu thập được sách nào, có thể hết dữ liệu")
                 break
             
-            
-            if page < max_pages:
-                delay = random.uniform(5, 8)
-                print(f"Chờ {delay:.1f}s trước trang tiếp theo...")
-                time.sleep(delay)
-        
+            # Next page
+            page += 1
+            delay = random.uniform(5, 8)
+            print(f"Chờ {delay:.1f}s trước trang tiếp theo...")
+            time.sleep(delay)
         
         if books_data:
+            # Save data with backup by date only
+            from datetime import datetime
             
+            # Create backup directory by date
+            now = datetime.now()
             data_dir = os.path.join(os.path.dirname(__file__), '../../data')
-            data_dir = os.path.abspath(data_dir)
-            os.makedirs(data_dir, exist_ok=True)
-
-            output_file_json = os.path.join(data_dir, 'fahasa_all_books.json')
-            output_file_csv = os.path.join(data_dir, 'fahasa_all_books.csv')
-
-            existing_data = []
-            if os.path.exists(output_file_json):
-                try:
-                    with open(output_file_json, 'r', encoding='utf-8') as f:
-                        existing_data = json.load(f)
-                    print(f"Đã có {len(existing_data)} sách cũ")
-                except:
-                    pass
-
+            backup_dir = os.path.join(data_dir, str(now.year), f"{now.month:02d}", f"{now.day:02d}")
+            os.makedirs(backup_dir, exist_ok=True)
             
-            existing_urls = {book.get('url', '') for book in existing_data}
-            new_books = [book for book in books_data if book.get('url', '') not in existing_urls]
+            # Backup files with timestamp (only new books for this crawl)
+            timestamp = now.strftime("%Y%m%d_%H%M%S")
+            backup_file_json = os.path.join(backup_dir, f'fahasa_books_{timestamp}.json')
+            backup_file_csv = os.path.join(backup_dir, f'fahasa_books_{timestamp}.csv')
 
-            all_books = existing_data + new_books
-
+            # Save backup files (only new books from this crawl session)
+            with open(backup_file_json, 'w', encoding='utf-8') as f:
+                json.dump(books_data, f, ensure_ascii=False, indent=2)
             
-            with open(output_file_json, 'w', encoding='utf-8') as f:
-                json.dump(all_books, f, ensure_ascii=False, indent=2)
-
-            
+            # Save CSV backup
             import pandas as pd
-            df = pd.DataFrame(all_books)
-            df.to_csv(output_file_csv, index=False, encoding='utf-8')
+            df_new = pd.DataFrame(books_data)
+            df_new.to_csv(backup_file_csv, index=False, encoding='utf-8')
 
-            print(f"\nHOÀN TẤT!")
-            print(f"Thu thập mới: {len(new_books)} sách")
-            print(f"Tổng cộng: {len(all_books)} sách")
-            print(f"Đã lưu: {output_file_json}, {output_file_csv}")
+            print(f"\n🎉 HOÀN TẤT CRAWL!")
+            print(f"Thu thập được: {len(books_data)}/{target_books} sách ({len(books_data)/target_books*100:.1f}%)")
+            print(f"Đã lưu JSON: {backup_file_json}")
+            print(f"Đã lưu CSV: {backup_file_csv}")
+            
+            # Auto-load to staging
+            print(f"\n🚀 TỰ ĐỘNG LOAD CSV VÀO STAGING...")
+            load_success = load_csv_to_staging(backup_file_csv)
+            
+            if load_success:
+                print(f"✅ ĐÃ LOAD {len(books_data)} SÁCH VÀO STAGING!")
+                print(f"🔄 WORKFLOW HOÀN TẤT: Crawl {target_books} → File → Staging")
+                
+                # Log crawl success
+                if logger and crawl_log_id:
+                    logger.log_crawl_success(crawl_log_id, len(books_data), backup_file_csv, backup_file_json)
+            else:
+                print(f"❌ Lỗi load CSV vào staging")
+                print(f"💡 Có thể chạy thủ công: python src/etl/load_csv_to_staging.py {backup_file_csv}")
+                
+                # Log crawl with warning
+                if logger and crawl_log_id:
+                    logger.log_crawl_success(crawl_log_id, len(books_data), backup_file_csv, backup_file_json)
+                    logger.log_operation(
+                        operation_type="STAGING_LOAD_ERROR",
+                        status=LogStatus.FAILED,
+                        log_level=LogLevel.WARN,
+                        error_message="Failed to auto-load CSV to staging",
+                        location="fahasa_bulk_scraper.py"
+                    )
+            
+            return backup_file_csv  # Return CSV path for chaining
         
     except KeyboardInterrupt:
-        print("\nNgười dùng dừng chương trình")
+        print(f"\nNgười dùng dừng chương trình - Đã thu thập {collected_count} sách")
+        # Log interrupted crawl
+        if logger and crawl_log_id:
+            logger.log_crawl_error(crawl_log_id, f"Crawl interrupted by user. Collected {collected_count} books")
     except Exception as e:
         print(f"\nLỗi: {e}")
+        # Log crawl error
+        if logger and crawl_log_id:
+            logger.log_crawl_error(crawl_log_id, str(e))
     finally:
         driver.quit()
         print("Đóng trình duyệt")
 
 
 if __name__ == "__main__":
-    MAX_PAGES = 1
-    BOOKS_PER_PAGE = 3
+    # SIMPLE CONFIGURATION - Just set number of books!
+    TARGET_BOOKS = 5  # ← CHỈNH SỐ SÁCH Ở ĐÂY
+    
+    # Check for quick run argument
+    quick_run = len(sys.argv) > 1 and sys.argv[1] in ['--quick', '-q', 'quick']
+    
     print("CẤU HÌNH:")
-    print(f"   Số trang: {MAX_PAGES}")
-    print(f"   Sách/trang: {BOOKS_PER_PAGE}")
-    print(f"   Tối đa: {MAX_PAGES * BOOKS_PER_PAGE} sách")
+    print(f"   Số sách cần crawl: {TARGET_BOOKS}")
     print()
-    choice = input("Bắt đầu test thu thập? (y/n): ").lower()
-    if choice == 'y':
-        scrape_fahasa_bulk(MAX_PAGES, BOOKS_PER_PAGE)
+    
+    if quick_run:
+        print(f"🚀 QUICK MODE - Crawl {TARGET_BOOKS} sách!")
+        scrape_fahasa_bulk(TARGET_BOOKS)
     else:
-        print("Hủy bỏ")
+        choice = input(f"Bắt đầu crawl {TARGET_BOOKS} sách? (y/n): ").lower()
+        if choice == 'y':
+            scrape_fahasa_bulk(TARGET_BOOKS)
+        else:
+            print("Hủy bỏ")

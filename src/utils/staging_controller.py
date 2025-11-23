@@ -3,7 +3,7 @@ Staging Control Module
 Quản lý ETL batch tracking, data quality validation và monitoring
 """
 
-import psycopg2
+import mysql.connector
 import json
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
@@ -13,7 +13,7 @@ class StagingController:
         self.connection_params = connection_params
     
     def get_connection(self):
-        return psycopg2.connect(**self.connection_params)
+        return mysql.connector.connect(**self.connection_params)
     
     def start_batch(self, source_type: str, source_identifier: str = None, 
                    created_by: str = 'system', notes: str = None) -> int:
@@ -29,10 +29,9 @@ class StagingController:
                 INSERT INTO staging_control_log 
                 (source_type, source_identifier, created_by, notes)
                 VALUES (%s, %s, %s, %s)
-                RETURNING batch_id
             """
             cur.execute(insert_sql, (source_type, source_identifier, created_by, notes))
-            batch_id = cur.fetchone()[0]
+            batch_id = cur.lastrowid
             conn.commit()
             
             print(f"✅ Started batch {batch_id} for {source_type}")
@@ -171,13 +170,12 @@ class StagingController:
                         (batch_id, check_name, check_description, check_query,
                          total_records, passed_records, failed_records, status)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                        RETURNING quality_id
                     """
                     cur.execute(quality_sql, (
                         batch_id, rule_name, rule_desc, rule_query,
                         total_count, passed_count, failed_count, status
                     ))
-                    quality_id = cur.fetchone()[0]
+                    quality_id = cur.lastrowid
                     
                     result = {
                         'quality_id': quality_id,
@@ -346,10 +344,10 @@ def example_usage():
     # Database connection
     connection_params = {
         'host': 'localhost',
-        'port': 5432,
-        'user': 'postgres',
-        'password': 'your_password',
-        'dbname': 'fahasa_staging'
+        'user': 'root',
+        'password': '123456',
+        'database': 'fahasa_staging',
+        'charset': 'utf8mb4'
     }
     
     # Initialize controller

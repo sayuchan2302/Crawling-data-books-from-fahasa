@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+.venv/
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+logs/*.log
+*.log
+
+# Test files (prevent future mess)
+test_*.py
+*_test.py
+debug_*.py
+verify_*.py
+check_*.py
+
+# Temporary SQL files
+*_temp.sql
+*_old.sql
+*_backup.sql
+duplicate_*.sql
+temp_*.sql
+
+# Data files (keep organized daily exports, ignore loose files)
+data/*.csv
+data/*.json
+data/*.xlsx
+!data/*/
+!data/*/*/
+!data/*/*/*/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+
+# Project specific cleanup
+Date_Dim/
+docs/
+duplicate_*
+*_duplicate.*
+
+# ChromeDriver
+chromedriver.exe
+chromedriver
