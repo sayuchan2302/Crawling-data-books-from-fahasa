@@ -1,22 +1,40 @@
 #!/usr/bin/env python3
 """
-Daily ETL Transform Pipeline - Chạy tất cả stored procedures
-Staging → DW → DataMart → BI Aggregates
+Daily ETL Transform Pipeline - Staging to Data Warehouse
+Scope: Transform staging data into Data Warehouse (DW)
+Note: Use load_data_mart.py separately for DataMart population
 """
 
 import mysql.connector
 from mysql.connector import Error
 import sys
 import os
-from datetime import datetime
+import subprocess
+import logging
+import argparse
+import json
+from datetime import datetime, date
 
-# Add utils path for control logging
-sys.path.append(os.path.join(os.path.dirname(__file__), 'utils'))
+# Add path for control logging
+sys.path.append(os.path.dirname(__file__))
 try:
-    from control_logger import logger, LogStatus, LogLevel
+    from control_logger import ETLLogger
+    control_logging_available = True
 except ImportError:
     print("⚠️ Control logger not available - running without logging")
-    logger = None
+    control_logging_available = False
+    
+    class MockETLLogger:
+        def __init__(self, *args, **kwargs):
+            pass
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            pass
+        def update_progress(self, *args, **kwargs):
+            pass
+    
+    ETLLogger = MockETLLogger
 
 class FahasaETL:
     def __init__(self):
@@ -39,61 +57,53 @@ class FahasaETL:
             return None
     
     def run_transform(self):
-        """Run complete ETL transform pipeline"""
-        etl_log_id = None
+        """Run ETL transform pipeline: Staging → Data Warehouse"""
         
-        try:
-            print("🚀 FAHASA ETL TRANSFORM PIPELINE")
-            print("=" * 60)
-            print(f"📅 Start Time: {datetime.now()}")
-            print("=" * 60)
-            
-            # Log ETL start
-            if logger:
-                etl_log_id = logger.log_operation(
-                    operation_type="FULL_ETL_TRANSFORM",
-                    status=LogStatus.RUNNING,
-                    log_level=LogLevel.INFO,
-                    location="daily_etl.py",
-                    error_message="Starting full ETL transform pipeline"
-                )
-            
-            # Step 1: Transform Staging → DW
-            print("📊 STEP 1: STAGING → DATA WAREHOUSE")
-            print("-" * 50)
-            dw_success = self.run_dw_transform()
-            
-            if not dw_success:
-                raise Exception("DW Transform failed")
-            
-            # Step 2: Transform DW → DataMart
-            print("\n📈 STEP 2: DATA WAREHOUSE → DATAMART")
-            print("-" * 50)
-            mart_success = self.run_datamart_transform()
-            
-            if not mart_success:
-                raise Exception("DataMart Transform failed")
-            
-            # Step 3: Generate BI Aggregates
-            print("\n🎯 STEP 3: GENERATE BI AGGREGATES")
-            print("-" * 50)
-            bi_success = self.run_bi_aggregates()
-            
-            # Success logging
-            if logger and etl_log_id:
-                logger.update_log_status(etl_log_id, LogStatus.SUCCESS, error_message="ETL Transform completed successfully")
-            
-            print("\n🎉 ETL TRANSFORM PIPELINE HOÀN TẤT!")
-            print("✅ Staging → DW → DataMart → BI Aggregates")
-            print(f"📅 End Time: {datetime.now()}")
-            
-            return True
-            
-        except Exception as e:
-            print(f"\n❌ ETL Transform failed: {e}")
-            if logger and etl_log_id:
-                logger.update_log_status(etl_log_id, LogStatus.FAILED, error_message=str(e))
-            return False
+        # Use control logging context manager
+        etl_details = {
+            'pipeline_type': 'staging_to_dw_transform',
+            'components': ['staging_to_dw', 'bi_aggregates'],
+            'mode': 'transform_only'
+        }
+        
+        with ETLLogger('fahasa_staging_to_dw_transform', etl_details) as etl_log:
+            try:
+                print("🚀 FAHASA STAGING TO DW TRANSFORM PIPELINE")
+                print("=" * 60)
+                print(f"📅 Start Time: {datetime.now()}")
+                print(f"🎯 Scope: Transform Staging → Data Warehouse Only")
+                print("=" * 60)
+                
+                # Step 1: Transform Staging → DW
+                print("📊 STEP 1: STAGING → DATA WAREHOUSE TRANSFORM")
+                print("-" * 50)
+                dw_success = self.run_dw_transform()
+                
+                if not dw_success:
+                    raise Exception("DW Transform failed")
+                
+                etl_log.update_progress(processed=1, inserted=1)  # Track step completion
+                
+                # Step 2: Generate BI Aggregates (DW level)
+                print("\n🎯 STEP 2: GENERATE DW BI AGGREGATES")
+                print("-" * 50)
+                bi_success = self.run_bi_aggregates()
+                
+                if not bi_success:
+                    print("⚠️ BI Aggregates failed but continuing...")
+                
+                etl_log.update_progress(processed=2, inserted=2)  # All steps completed
+                
+                print("\n🎉 STAGING → DW TRANSFORM COMPLETED!")
+                print("✅ Data Warehouse is ready for DataMart loading")
+                print(f"💡 Note: Use load_data_mart.py for DataMart population")
+                print(f"📅 End Time: {datetime.now()}")
+                
+                return True
+                
+            except Exception as e:
+                print(f"\n❌ ETL Transform failed: {e}")
+                raise  # Let context manager handle the error
     
     def run_dw_transform(self):
         """Run Data Warehouse transformation procedures"""
@@ -150,57 +160,7 @@ class FahasaETL:
             cursor.close()
             dw_conn.close()
     
-    def run_datamart_transform(self):
-        """Run DataMart transformation procedures"""
-        mart_conn = self.connect_db('fahasa_datamart')
-        if not mart_conn:
-            return False
-            
-        cursor = mart_conn.cursor()
-        
-        try:
-            print("   🔄 Running DataMart transformation procedures...")
-            
-            # List of DataMart procedures
-            mart_procedures = [
-                'sp_populate_mart_daily_sales',
-                'sp_populate_mart_category_performance',
-                'sp_populate_mart_author_insights',
-                'sp_populate_mart_publisher_performance',
-                'sp_populate_mart_product_flat'
-            ]
-            
-            successful_procs = 0
-            
-            for proc in mart_procedures:
-                try:
-                    print(f"      🔄 {proc}...")
-                    cursor.callproc(proc)
-                    
-                    # Consume results
-                    for result in cursor.stored_results():
-                        result.fetchall()
-                    
-                    print(f"      ✅ {proc} completed")
-                    successful_procs += 1
-                    
-                except Error as e:
-                    print(f"      ⚠️ {proc} failed: {e}")
-                    continue
-            
-            print(f"\n   📈 DataMart Transform Summary: {successful_procs}/{len(mart_procedures)} procedures successful")
-            
-            # Show DataMart statistics
-            self.show_mart_stats(cursor)
-            
-            return successful_procs > 0
-            
-        except Exception as e:
-            print(f"   ❌ DataMart Transform error: {e}")
-            return False
-        finally:
-            cursor.close()
-            mart_conn.close()
+
     
     def run_bi_aggregates(self):
         """Run BI aggregate procedures"""
@@ -270,29 +230,14 @@ class FahasaETL:
         except Exception as e:
             print(f"   ⚠️ Cannot show DW stats: {e}")
     
-    def show_mart_stats(self, cursor):
-        """Show DataMart statistics"""
-        try:
-            cursor.execute("""
-                SELECT 'Daily Sales' as table_name, COUNT(*) as count FROM mart_daily_sales
-                UNION ALL SELECT 'Category Performance', COUNT(*) FROM mart_category_performance
-                UNION ALL SELECT 'Author Insights', COUNT(*) FROM mart_author_insights
-                UNION ALL SELECT 'Publisher Performance', COUNT(*) FROM mart_publisher_performance
-                UNION ALL SELECT 'Product Flat', COUNT(*) FROM mart_product_flat
-            """)
-            
-            print("   📈 DataMart Stats:")
-            results = cursor.fetchall()
-            for table_name, count in results:
-                print(f"      • {table_name}: {count:,} records")
-                
-        except Exception as e:
-            print(f"   ⚠️ Cannot show DataMart stats: {e}")
+
     
     def run_quick_test(self):
-        """Quick test của một vài stored procedures"""
-        print("🧪 QUICK ETL TEST")
+        """Quick test of DW transform procedures"""
+        print("🧪 QUICK DW TRANSFORM TEST")
         print("=" * 40)
+        print("🎯 Testing: Staging → Data Warehouse Transform")
+        print()
         
         # Test simple DW procedure
         dw_conn = self.connect_db('fahasa_dw')
@@ -306,96 +251,28 @@ class FahasaETL:
                 for result in cursor.stored_results():
                     result.fetchall()
                     
-                print("   ✅ DW test completed")
+                print("   ✅ DW transform test completed")
+                
+                # Show simple DW stats
+                cursor.execute("SELECT COUNT(*) FROM publisher_dim")
+                pub_count = cursor.fetchone()[0]
+                print(f"   📊 Publishers in DW: {pub_count}")
+                
             except Exception as e:
-                print(f"   ❌ DW test failed: {e}")
+                print(f"   ❌ DW transform test failed: {e}")
             finally:
                 cursor.close()
                 dw_conn.close()
         
-        # Test simple DataMart procedure  
-        mart_conn = self.connect_db('fahasa_datamart')
-        if mart_conn:
-            cursor = mart_conn.cursor()
-            try:
-                print("   🔄 Testing sp_populate_mart_daily_sales...")
-                cursor.callproc('sp_populate_mart_daily_sales')
-                
-                # Consume results
-                for result in cursor.stored_results():
-                    result.fetchall()
-                    
-                print("   ✅ DataMart test completed")
-            except Exception as e:
-                print(f"   ❌ DataMart test failed: {e}")
-            finally:
-                cursor.close()
-                mart_conn.close()
-        
-        print("🎉 Quick test completed!")
+        print("\n💡 Note: For DataMart testing, use load_data_mart.py")
+        print("🎉 DW transform quick test completed!")
 
-
-def main():
-    """Main ETL runner"""
-    
-    # Check for arguments
-    if len(sys.argv) > 1:
-        arg = sys.argv[1].lower()
-        
-        if arg in ['--quick', '-q', 'quick']:
-            print("🚀 QUICK MODE - Running full ETL transform...")
-            etl = FahasaETL()
-            success = etl.run_transform()
-            sys.exit(0 if success else 1)
-            
-        elif arg in ['--test', '-t', 'test']:
-            print("🧪 TEST MODE - Running quick test...")
-            etl = FahasaETL()
-            etl.run_quick_test()
-            sys.exit(0)
-            
-        elif arg in ['--help', '-h', 'help']:
-            print("FAHASA ETL TRANSFORM")
-            print("Usage:")
-            print("  python daily_etl.py --quick    # Run full transform")
-            print("  python daily_etl.py --test     # Run quick test")
-            print("  python daily_etl.py            # Interactive mode")
-            sys.exit(0)
-    
-    # Interactive mode
-    print("FAHASA ETL TRANSFORM PIPELINE")
-    print("=" * 50)
-    print("Chạy tất cả stored procedures:")
-    print("  🏗️  DW Transform (8 procedures)")
-    print("  📊 DataMart Transform (5 procedures)")  
-    print("  🎯 BI Aggregates (5 procedures)")
-    print()
-    print("Opciones:")
-    print("  1. Full transform (tất cả)")
-    print("  2. Quick test (test một vài SP)")
-    print("  3. Exit")
-    print()
-    
-    choice = input("Chọn option (1-3): ").strip()
-    
-    if choice == '1':
-        print("\n🚀 Running full ETL transform...")
-        etl = FahasaETL()
-        success = etl.run_transform()
-        print(f"\n{'✅ Success!' if success else '❌ Failed!'}")
-    elif choice == '2':
-        print("\n🧪 Running quick test...")
-        etl = FahasaETL()
-        etl.run_quick_test()
-    elif choice == '3':
-        print("Exit")
-    else:
-        print("Invalid choice")
-
-if __name__ == "__main__":
-    main()
+# ======================================
+# MODERN ETL FUNCTIONS
+# ======================================
 from typing import Dict, List, Tuple, Optional
 import argparse
+import getpass
 
 # ======================================
 # CONFIGURATION
@@ -471,12 +348,12 @@ class ETLProcessor:
             return 0
     
     def run_simple_etl(self) -> Dict:
-        """Run the ETL pipeline with simplified control logging"""
+        """Run the DW ETL pipeline (staging→dw) with simplified control logging"""
         try:
             conn = self.get_connection('fahasa_control')
             cursor = conn.cursor()
             
-            self.logger.info(f"Starting ETL with simplified control logging - batch_id: {self.batch_id}")
+            self.logger.info(f"Starting DW ETL (staging→dw) with simplified control logging - batch_id: {self.batch_id}")
             
             # Call the simplified daily ETL procedure
             cursor.callproc('sp_simplified_daily_etl', [])
@@ -512,6 +389,69 @@ class ETLProcessor:
             
         except Exception as e:
             self.logger.error(f"ETL failed: {e}")
+            raise
+    
+    def run_bi_aggregates_only(self) -> Dict:
+        """Run only BI aggregates using modular BIAggregator"""
+        try:
+            from src.etl.bi_aggregator import BIAggregator
+            
+            self.logger.info("Starting BI aggregates processing...")
+            
+            # Initialize BI Aggregator
+            bi_aggregator = BIAggregator()
+            
+            # Run all aggregates
+            success_count, total_count, results = bi_aggregator.run_all_aggregates()
+            
+            # Create summary
+            summary = {
+                'batch_id': self.batch_id,
+                'bi_aggregates_success': success_count,
+                'bi_aggregates_total': total_count,
+                'bi_success_rate': (success_count / total_count * 100) if total_count > 0 else 0,
+                'status': 'COMPLETED' if success_count == total_count else 'PARTIAL',
+                'details': results
+            }
+            
+            self.logger.info(f"BI Aggregates completed: {success_count}/{total_count} successful")
+            
+            return summary
+            
+        except Exception as e:
+            self.logger.error(f"BI Aggregates failed: {e}")
+            raise
+    
+    def run_etl_with_modular_bi(self) -> Dict:
+        """Run DW ETL pipeline with modular BI aggregates"""
+        try:
+            # Run main DW ETL first
+            self.logger.info("Starting modular DW ETL pipeline...")
+            
+            # Run core DW ETL (staging→dw)
+            etl_results = self.run_simple_etl()
+            
+            # Run DW BI aggregates separately using modular approach
+            bi_results = self.run_bi_aggregates_only()
+            
+            # Combine results
+            combined_results = {
+                **etl_results,
+                'bi_modular_success': bi_results['bi_aggregates_success'],
+                'bi_modular_total': bi_results['bi_aggregates_total'],
+                'bi_modular_rate': bi_results['bi_success_rate'],
+                'modular_status': bi_results['status'],
+                'architecture': 'MODULAR_DW_ONLY',
+                'note': 'Use load_data_mart.py for DataMart population'
+            }
+            
+            self.logger.info("Modular DW ETL pipeline completed successfully")
+            self.logger.info("Note: Use load_data_mart.py for DataMart population")
+            
+            return combined_results
+            
+        except Exception as e:
+            self.logger.error(f"Modular DW ETL pipeline failed: {e}")
             raise
     
     def generate_summary_report(self) -> Dict:
@@ -600,15 +540,141 @@ def run_crawler():
         logger.error(f"Crawler script not found: {CRAWLER_SCRIPT}")
         return False
 
+def show_interactive_menu():
+    """Show interactive menu for ETL options"""
+    print("FAHASA STAGING → DW TRANSFORM PIPELINE")
+    print("=" * 55)
+    print("🎯 Scope: Transform Staging data to Data Warehouse")
+    print("💡 Note: Use load_data_mart.py separately for DataMart")
+    print()
+    print("Choose transform approach:")
+    print("  🏗️  Traditional: FahasaETL class (staging→dw transform)")
+    print("  🚀 Modern: ETLProcessor class (enhanced control)")
+    print()
+    print("Options:")
+    print("  1. Traditional DW Transform (FahasaETL)")
+    print("  2. Traditional Quick Test (DW only)")
+    print("  3. Modern ETL (ETLProcessor)")
+    print("  4. Modern ETL + BI Aggregates")
+    print("  5. BI Aggregates Only (DW level)")
+    print("  6. Show Help")
+    print("  7. Exit")
+    print()
+    
+    choice = input("Choose option (1-7): ").strip()
+    
+    if choice == '1':
+        print("\n🚀 Running traditional DW transform (Staging→DW)...")
+        etl = FahasaETL()
+        success = etl.run_transform()
+        print(f"\n{'✅ Success!' if success else '❌ Failed!'}")
+        if success:
+            print("💡 Next: Run load_data_mart.py for DataMart population")
+    elif choice == '2':
+        print("\n🧪 Running traditional DW quick test...")
+        etl = FahasaETL()
+        etl.run_quick_test()
+    elif choice == '3':
+        print("\n🔥 Running modern DW ETL (ETLProcessor)...")
+        etl = ETLProcessor(DB_CONFIG)
+        results = etl.run_simple_etl()
+        print(f"\n✅ Modern DW ETL completed! Status: {results.get('status', 'UNKNOWN')}")
+        print("💡 Next: Run load_data_mart.py for DataMart population")
+    elif choice == '4':
+        print("\n⚡ Running modern DW ETL + BI aggregates...")
+        etl = ETLProcessor(DB_CONFIG)
+        results = etl.run_etl_with_modular_bi()
+        print(f"\n🎉 DW ETL + BI completed! Architecture: {results.get('architecture', 'MODERN')}")
+        print("💡 Next: Run load_data_mart.py for DataMart population")
+    elif choice == '5':
+        print("\n🎯 Running DW BI aggregates only...")
+        etl = ETLProcessor(DB_CONFIG)
+        results = etl.run_bi_aggregates_only()
+        print(f"\n📊 DW BI Aggregates completed! Success rate: {results.get('bi_success_rate', 0):.1f}%")
+    elif choice == '6':
+        print("\nFAHASA STAGING→DW TRANSFORM HELP:")
+        print("🎯 Scope: Transform staging data to data warehouse")
+        print("\nCommand line options:")
+        print("  (none)          Auto mode: ETL + BI aggregates")
+        print("  --quick, -q     Traditional DW transform (staging→dw)")
+        print("  --test, -t      Traditional DW quick test")
+        print("  --menu, -m      Show this interactive menu")
+        print("  --modular       Modern DW ETL with BI aggregates")
+        print("  --bi-only       DW BI aggregates only")
+        print("  --report        DW summary report")
+        print("  --with-crawler  Run crawler before transform")
+        print("\n📋 Workflow:")
+        print("  1. daily_etl.py     → Transform staging to DW")
+        print("  2. load_data_mart.py → Load DW to DataMart")
+        print("\n💡 For DataMart: Use load_data_mart.py separately")
+    elif choice == '7':
+        print("👋 Exit")
+    else:
+        print("❌ Invalid choice")
+
 def main():
-    """Main ETL orchestration function"""
-    parser = argparse.ArgumentParser(description='Daily ETL Pipeline')
+    """Main ETL orchestration function - Unified approach"""
+    parser = argparse.ArgumentParser(description='Fahasa Daily ETL Pipeline - Unified')
+    
+    # Legacy options (FahasaETL class)
+    parser.add_argument('--quick', '-q', action='store_true',
+                       help='Run full transform using traditional FahasaETL class')
+    parser.add_argument('--test', '-t', action='store_true', 
+                       help='Run quick test using traditional approach')
+    
+    # Modern options (ETLProcessor class)
     parser.add_argument('--with-crawler', action='store_true', 
                        help='Run crawler before ETL')
     parser.add_argument('--report', action='store_true',
                        help='Generate summary report only')
+    parser.add_argument('--bi-only', action='store_true',
+                       help='Run BI aggregates only using modular approach')
+    parser.add_argument('--modular', action='store_true',
+                       help='Run ETL with modular BI aggregates')
+    parser.add_argument('--menu', '-m', action='store_true',
+                       help='Show interactive menu (original behavior)')
     
     args = parser.parse_args()
+    
+    # Handle legacy options first
+    if args.quick:
+        print("🚀 QUICK MODE - Running full ETL transform (Traditional)...")
+        etl = FahasaETL()
+        success = etl.run_transform()
+        print(f"\n{'✅ Success!' if success else '❌ Failed!'}")
+        sys.exit(0 if success else 1)
+        
+    if args.test:
+        print("🧪 TEST MODE - Running quick test (Traditional)...")
+        etl = FahasaETL()
+        etl.run_quick_test()
+        sys.exit(0)
+    
+    # Show interactive menu if requested
+    if args.menu:
+        show_interactive_menu()
+        return
+    
+    # If no arguments, run default ETL with BI aggregates
+    if not any(vars(args).values()):
+        print("🚀 FAHASA STAGING → DW TRANSFORM PIPELINE")
+        print("=" * 60)
+        print("🎯 Auto Mode: Running ETL Transform + BI Aggregates")
+        print("💡 Note: Use load_data_mart.py separately for DataMart")
+        print("=" * 60)
+        
+        # Run default: Traditional ETL transform + BI aggregates
+        etl = FahasaETL()
+        success = etl.run_transform()
+        
+        if success:
+            print(f"\n✅ ETL + BI AGGREGATES COMPLETED SUCCESSFULLY!")
+            print("🎯 Data Warehouse is ready with transformed data and aggregates")
+            print("💡 Next: Run load_data_mart.py for DataMart population")
+        else:
+            print(f"\n❌ ETL TRANSFORM FAILED!")
+        
+        sys.exit(0 if success else 1)
     
     # Setup logging
     logger = setup_logging()
@@ -633,6 +699,23 @@ def main():
             
             return
         
+        # Run BI aggregates only
+        if args.bi_only:
+            logger.info("Running BI aggregates only (modular approach)...")
+            results = etl.run_bi_aggregates_only()
+            
+            print("\\n" + "="*60)
+            print("BI AGGREGATES EXECUTION SUMMARY")
+            print("="*60)
+            print(f"Batch ID: {etl.batch_id}")
+            print(f"BI Aggregates Success: {results.get('bi_aggregates_success', 0)}")
+            print(f"BI Aggregates Total: {results.get('bi_aggregates_total', 0)}")
+            print(f"Success Rate: {results.get('bi_success_rate', 0):.1f}%")
+            print(f"Status: {results.get('status', 'UNKNOWN')}")
+            print("="*60)
+            
+            return
+        
         # Run crawler if requested
         if args.with_crawler:
             if not run_crawler():
@@ -646,13 +729,17 @@ def main():
             logger.info("Use --with-crawler flag to run crawler automatically")
             return
         
-        # Run ETL
-        logger.info("Starting ETL transformation...")
-        results = etl.run_simple_etl()
+        # Run ETL - choose modular or traditional approach
+        if args.modular:
+            logger.info("Starting modular ETL transformation...")
+            results = etl.run_etl_with_modular_bi()
+        else:
+            logger.info("Starting traditional ETL transformation...")
+            results = etl.run_simple_etl()
         
         # Print summary
         print("\\n" + "="*60)
-        print("ETL EXECUTION SUMMARY")
+        print("STAGING → DW TRANSFORM EXECUTION SUMMARY")
         print("="*60)
         print(f"Batch ID: {etl.batch_id}")
         print(f"Log ID: {results.get('log_id', 'N/A')}")
@@ -661,10 +748,19 @@ def main():
         print(f"Categories Processed: {results.get('categories_processed', 0)}")
         print(f"Products Processed: {results.get('products_processed', 0)}")
         print(f"Facts Processed: {results.get('facts_processed', 0)}")
-        print(f"DataMart Records: {results.get('datamart_processed', 0)}")
-        print(f"BI Aggregates: {results.get('aggregates_processed', 0)}")
+        
+        # Show BI aggregates info based on approach
+        if args.modular:
+            print(f"DW BI Modular Success: {results.get('bi_modular_success', 0)}")
+            print(f"DW BI Modular Total: {results.get('bi_modular_total', 0)}")
+            print(f"DW BI Success Rate: {results.get('bi_modular_rate', 0):.1f}%")
+            print(f"Architecture: {results.get('architecture', 'TRADITIONAL')}")
+        else:
+            print(f"DW BI Aggregates: {results.get('aggregates_processed', 0)}")
+        
         print(f"Duration: {results.get('total_duration', 0)} seconds")
         print(f"Status: {results.get('status', 'COMPLETED')}")
+        print("\n💡 Next Step: Run load_data_mart.py for DataMart population")
         print("="*60)
         
         logger.info("ETL pipeline completed successfully!")

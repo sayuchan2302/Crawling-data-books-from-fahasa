@@ -304,6 +304,45 @@ def get_book_details(driver, url):
         except:
             pass
         
+        # Thu thập rating_count từ "(X đánh giá)"
+        try:
+            # Tìm rating count từ các selector khác nhau
+            rating_count_selectors = [
+                "//td[@class='review-position']//a[contains(text(), 'đánh giá')]",
+                "//p[@class='rating-links']//a[contains(text(), 'đánh giá')]", 
+                "//a[contains(text(), 'đánh giá')]",
+                "//*[contains(text(), 'đánh giá') and not(name()='script')]"
+            ]
+            
+            for selector in rating_count_selectors:
+                try:
+                    rating_count_elem = driver.find_element(By.XPATH, selector)
+                    rating_count_text = rating_count_elem.text.strip()
+                    # Extract số từ text như "(2 đánh giá)" hoặc "2 đánh giá"
+                    count_match = re.search(r'\(?\s*(\d+)\s*đánh\s*giá\s*\)?', rating_count_text, re.IGNORECASE)
+                    if count_match:
+                        book['rating_count'] = int(count_match.group(1))
+                        print(f"    Found rating_count: {book['rating_count']} từ text: '{rating_count_text}'")
+                        break
+                except:
+                    continue
+                    
+            # Nếu không tìm thấy, thử tìm theo CSS selector
+            if book['rating_count'] == 0:
+                try:
+                    review_links = driver.find_elements(By.CSS_SELECTOR, '.rating-links a, .review-position a, a[onclick*="review"]')
+                    for link in review_links:
+                        text = link.text.strip()
+                        count_match = re.search(r'\(?\s*(\d+)\s*đánh\s*giá\s*\)?', text, re.IGNORECASE)
+                        if count_match:
+                            book['rating_count'] = int(count_match.group(1))
+                            print(f"    Found rating_count (CSS): {book['rating_count']} từ text: '{text}'")
+                            break
+                except:
+                    pass
+        except:
+            pass
+        
         
         try:
             sold_elem = driver.find_element(By.CSS_SELECTOR, 'div.product-view-qty-num')
@@ -555,7 +594,7 @@ def scrape_fahasa_bulk(target_books=100):
 
 if __name__ == "__main__":
     # SIMPLE CONFIGURATION - Just set number of books!
-    TARGET_BOOKS = 5  # ← CHỈNH SỐ SÁCH Ở ĐÂY
+    TARGET_BOOKS = 10  # ← CHỈNH SỐ SÁCH Ở ĐÂY
     
     # Check for quick run argument
     quick_run = len(sys.argv) > 1 and sys.argv[1] in ['--quick', '-q', 'quick']
