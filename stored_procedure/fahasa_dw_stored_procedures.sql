@@ -1,7 +1,7 @@
 -- ============================================================
 -- Stored Procedures for Database: fahasa_dw
--- Generated on: 2025-11-23 16:35:35
--- Total procedures: 50
+-- Generated on: 2025-11-25 01:31:15
+-- Total procedures: 53
 -- ============================================================
 
 USE `fahasa_dw`;
@@ -349,6 +349,28 @@ DELIMITER ;
 -- --------------------------------------------------
 
 -- ==================================================
+-- Procedure: sp_fix_bridge_book_categories
+-- Type: PROCEDURE
+-- Created: root@localhost
+-- Modified: 2025-11-23 16:46:50
+-- ==================================================
+
+DROP PROCEDURE IF EXISTS `sp_fix_bridge_book_categories`;
+
+DELIMITER $$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_fix_bridge_book_categories`()
+BEGIN
+        CALL sp_sync_dim_categories();
+        CALL sp_populate_bridge_book_categories_fixed();
+    END
+$$
+
+DELIMITER ;
+
+-- --------------------------------------------------
+
+-- ==================================================
 -- Procedure: sp_load_author_dim
 -- Type: PROCEDURE
 -- Created: root@localhost
@@ -451,8 +473,7 @@ DELIMITER ;
 -- Procedure: sp_load_dim_books
 -- Type: PROCEDURE
 -- Created: root@localhost
--- Modified: 2025-11-23 17:45:00 (NULL COLUMNS FIXED)
--- FIXED: Ensures all columns populated from staging with COALESCE for NULL handling
+-- Modified: 2025-11-23 17:16:53
 -- ==================================================
 
 DROP PROCEDURE IF EXISTS `sp_load_dim_books`;
@@ -829,23 +850,21 @@ DELIMITER ;
 -- Procedure: sp_load_fact_book_sales
 -- Type: PROCEDURE
 -- Created: root@localhost
--- Modified: 2025-11-23 18:00:00 (FACT_SALES NULL FIX)
--- FIXED: Ensures no NULL values in fact_book_sales, proper bridge table joins
+-- Modified: 2025-11-23 17:37:15
 -- ==================================================
 
 DROP PROCEDURE IF EXISTS `sp_load_fact_book_sales`;
 
 DELIMITER $$
 
-CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_load_fact_book_sales`(
-    IN p_batch_id VARCHAR(50)
-)
+CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_load_fact_book_sales`(IN p_batch_id VARCHAR(50))
 BEGIN
     DECLARE v_new_records INT DEFAULT 0;
     DECLARE v_error_count INT DEFAULT 0;
     DECLARE v_start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
     DECLARE v_procedure_name VARCHAR(100) DEFAULT 'sp_load_fact_book_sales';
     DECLARE v_date_sk INT;
+    
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         ROLLBACK;
@@ -862,35 +881,26 @@ BEGIN
         );
         RESIGNAL;
     END;
+    
     START TRANSACTION;
     SET v_date_sk = YEAR(CURRENT_DATE) * 10000 + MONTH(CURRENT_DATE) * 100 + DAY(CURRENT_DATE);
+    
     INSERT INTO fahasa_control.etl_logs (
         batch_id, procedure_name, status, message, start_time
     ) VALUES (
         p_batch_id, v_procedure_name, 'STARTED', 
         CONCAT('Starting fact book sales load for date_sk: ', v_date_sk), v_start_time
     );
-    DELETE FROM fact_book_sales 
-    WHERE date_sk = v_date_sk;
+    
+    DELETE FROM fact_book_sales WHERE date_sk = v_date_sk;
+    
     INSERT INTO fact_book_sales (
-        book_sk,
-        category_sk,
-        date_sk,
-        original_price,
-        discount_price,
-        discount_amount,
-        discount_percent,
-        rating,
-        rating_count,
-        sold_count_numeric,
-        revenue_potential,
-        discount_total,
-        batch_id
+        book_sk, category_sk, date_sk, original_price, discount_price,
+        discount_amount, discount_percent, rating, rating_count,
+        sold_count_numeric, revenue_potential, discount_total, batch_id
     )
     SELECT DISTINCT
-        db.book_sk,
-        bbc.category_sk,
-        v_date_sk as date_sk,
+        db.book_sk, bbc.category_sk, v_date_sk as date_sk,
         COALESCE(NULLIF(s.original_price, 0), 100000) as original_price,
         COALESCE(NULLIF(s.discount_price, 0), 80000) as discount_price,
         COALESCE(
@@ -940,8 +950,10 @@ BEGIN
       AND TRIM(s.url) != ''
       AND s.title IS NOT NULL
       AND TRIM(s.title) != '';
+      
     SET v_new_records = ROW_COUNT();
     COMMIT;
+    
     INSERT INTO fahasa_control.etl_logs (
         batch_id, procedure_name, status, message, 
         records_processed, records_inserted, records_updated,
@@ -964,8 +976,7 @@ DELIMITER ;
 -- Procedure: sp_load_fact_book_sales_complete
 -- Type: PROCEDURE
 -- Created: root@localhost
--- Modified: 2025-11-23 18:00:00 (FACT_SALES_COMPLETE NULL FIX)
--- FIXED: Ensures all fact_book_sales columns populated with realistic data, no NULL values
+-- Modified: 2025-11-23 17:35:31
 -- ==================================================
 
 DROP PROCEDURE IF EXISTS `sp_load_fact_book_sales_complete`;
@@ -974,128 +985,37 @@ DELIMITER $$
 
 CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_load_fact_book_sales_complete`()
 BEGIN
-            DECLARE v_records_created INT DEFAULT 0;
-            DECLARE v_current_date_sk INT;
-            
-            -- Clear existing fact data
-            TRUNCATE TABLE fact_book_sales;
-            
-            -- Generate current date_sk and check date_dim table
-            SET v_current_date_sk = YEAR(CURRENT_DATE) * 10000 + MONTH(CURRENT_DATE) * 100 + DAY(CURRENT_DATE);
-            
-            -- Verify date exists in date_dim, if not create it
-            IF (SELECT COUNT(*) FROM date_dim WHERE date_sk = v_current_date_sk) = 0 THEN
-                INSERT IGNORE INTO date_dim (date_sk, full_date, calendar_year, day_of_month, day_of_year)
-                VALUES (v_current_date_sk, CURRENT_DATE, YEAR(CURRENT_DATE), DAY(CURRENT_DATE), DAYOFYEAR(CURRENT_DATE));
-            END IF;
-            
-            -- Load fact data from multiple sources with NO NULL guarantees
-            INSERT INTO fact_book_sales (
-                book_sk,
-                category_sk, 
-                date_sk,
-                original_price,
-                discount_price,
-                discount_amount,
-                discount_percent,
-                rating,
-                rating_count,
-                sold_count_numeric,
-                revenue_potential,
-                discount_total,
-                batch_id
-            )
-            SELECT DISTINCT
-                db.book_sk,
-                bbc.category_sk,
-                v_current_date_sk as date_sk,
-                -- Ensure no NULL prices with realistic ranges
-                ROUND(80000 + (RAND() * 400000), 0) as original_price,
-                ROUND((80000 + (RAND() * 400000)) * (0.75 + RAND() * 0.20), 0) as discount_price,
-                ROUND((80000 + (RAND() * 400000)) * (0.05 + RAND() * 0.20), 0) as discount_amount,
-                ROUND(5 + (RAND() * 25), 1) as discount_percent,
-                -- Ensure realistic rating range (3.0-5.0)
-                ROUND(3.0 + (RAND() * 2.0), 1) as rating,
-                FLOOR(15 + (RAND() * 485)) as rating_count,
-                FLOOR(5 + (RAND() * 95)) as sold_count_numeric,
-                ROUND((80000 + (RAND() * 400000)) * (5 + (RAND() * 95)), 0) as revenue_potential,
-                -- Calculate discount_total and batch_id with no NULLs
-                ROUND((80000 + (RAND() * 400000)) * (0.05 + RAND() * 0.20) * (5 + (RAND() * 95)), 0) as discount_total,
-                1 as batch_id
-            FROM dim_books db
-            INNER JOIN bridge_book_categories bbc ON db.book_sk = bbc.book_sk
-            WHERE bbc.is_current = 1;
-            
-            SET v_records_created = ROW_COUNT();
-            
-            -- Enhanced staging data integration with strict NULL prevention
-            INSERT INTO fact_book_sales (
-                book_sk,
-                category_sk,
-                date_sk,
-                original_price,
-                discount_price,
-                discount_amount,
-                discount_percent,
-                rating,
-                rating_count,
-                sold_count_numeric,
-                revenue_potential,
-                discount_total,
-                batch_id
-            )
-            SELECT DISTINCT
-                db.book_sk,
-                bbc.category_sk,
-                v_current_date_sk,
-                COALESCE(NULLIF(sb.original_price, 0), 120000) as original_price,
-                COALESCE(NULLIF(sb.discount_price, 0), COALESCE(sb.original_price * 0.85, 100000)) as discount_price,
-                COALESCE(
-                    CASE 
-                        WHEN sb.original_price > 0 AND sb.discount_price > 0 AND sb.original_price > sb.discount_price
-                        THEN sb.original_price - sb.discount_price 
-                        ELSE 15000
-                    END, 15000
-                ) as discount_amount,
-                COALESCE(
-                    CASE 
-                        WHEN sb.original_price > 0 AND sb.discount_price > 0 AND sb.original_price > sb.discount_price
-                        THEN ROUND(((sb.original_price - sb.discount_price) / sb.original_price * 100), 1)
-                        ELSE 12.5
-                    END, 12.5
-                ) as discount_percent,
-                COALESCE(NULLIF(sb.rating, 0), 4.2) as rating,
-                COALESCE(NULLIF(sb.rating_count, 0), 75) as rating_count,
-                COALESCE(NULLIF(sb.sold_count_numeric, 0), 35) as sold_count_numeric,
-                COALESCE(
-                    CASE 
-                        WHEN sb.discount_price > 0 AND sb.sold_count_numeric > 0
-                        THEN sb.discount_price * sb.sold_count_numeric
-                        ELSE 3500000
-                    END, 3500000
-                ) as revenue_potential,
-                -- Calculate discount_total and set batch_id with no NULLs
-                COALESCE(
-                    CASE 
-                        WHEN sb.original_price > 0 AND sb.discount_price > 0 AND sb.sold_count_numeric > 0
-                        THEN (sb.original_price - sb.discount_price) * sb.sold_count_numeric
-                        ELSE 500000
-                    END, 500000
-                ) as discount_total,
-                2 as batch_id
-            FROM fahasa_staging.staging_books sb
-            INNER JOIN dim_books db ON TRIM(sb.title) = TRIM(db.title)
-            INNER JOIN bridge_book_categories bbc ON db.book_sk = bbc.book_sk
-            WHERE bbc.is_current = 1
-            AND sb.title IS NOT NULL AND TRIM(sb.title) != ''
-            AND NOT EXISTS (
-                SELECT 1 FROM fact_book_sales f 
-                WHERE f.book_sk = db.book_sk AND f.category_sk = bbc.category_sk
-            );
-            
-            SET v_records_created = v_records_created + ROW_COUNT();
-        END
-        END
+    DECLARE v_records_created INT DEFAULT 0;
+    DECLARE v_current_date_sk INT;
+    
+    -- Clear existing fact data
+    TRUNCATE TABLE fact_book_sales;
+    
+    -- Generate current date_sk
+    SET v_current_date_sk = YEAR(CURRENT_DATE) * 10000 + MONTH(CURRENT_DATE) * 100 + DAY(CURRENT_DATE);
+    
+    -- Load fact data with ALL columns including discount_total and batch_id
+    INSERT INTO fact_book_sales (
+        book_sk, category_sk, date_sk, original_price, discount_price,
+        discount_amount, discount_percent, rating, rating_count,
+        sold_count_numeric, revenue_potential, discount_total, batch_id
+    )
+    SELECT DISTINCT
+        db.book_sk, bbc.category_sk, v_current_date_sk as date_sk,
+        ROUND(80000 + (RAND() * 400000), 0) as original_price,
+        ROUND((80000 + (RAND() * 400000)) * (0.75 + RAND() * 0.20), 0) as discount_price,
+        ROUND((80000 + (RAND() * 400000)) * (0.05 + RAND() * 0.20), 0) as discount_amount,
+        ROUND(5 + (RAND() * 25), 1) as discount_percent,
+        ROUND(3.0 + (RAND() * 2.0), 1) as rating,
+        FLOOR(15 + (RAND() * 485)) as rating_count,
+        FLOOR(5 + (RAND() * 95)) as sold_count_numeric,
+        ROUND((80000 + (RAND() * 400000)) * (5 + (RAND() * 95)), 0) as revenue_potential,
+        ROUND((80000 + (RAND() * 400000)) * (0.05 + RAND() * 0.20) * (5 + (RAND() * 95)), 0) as discount_total,
+        1 as batch_id
+    FROM dim_books db
+    INNER JOIN bridge_book_categories bbc ON db.book_sk = bbc.book_sk
+    WHERE bbc.is_current = 1;
+END
 $$
 
 DELIMITER ;
@@ -1235,67 +1155,35 @@ DELIMITER ;
 -- Procedure: sp_load_fact_daily_metrics
 -- Type: PROCEDURE
 -- Created: root@localhost
--- Modified: 2025-11-20 01:33:19
+-- Modified: 2025-11-23 17:46:29
 -- ==================================================
 
 DROP PROCEDURE IF EXISTS `sp_load_fact_daily_metrics`;
 
 DELIMITER $$
 
-CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_load_fact_daily_metrics`(
-    IN p_batch_id VARCHAR(50)
-)
+CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_load_fact_daily_metrics`(IN p_batch_id VARCHAR(50))
 BEGIN
     DECLARE v_new_records INT DEFAULT 0;
-    DECLARE v_error_count INT DEFAULT 0;
-    DECLARE v_start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
-    DECLARE v_procedure_name VARCHAR(100) DEFAULT 'sp_load_fact_daily_metrics';
     DECLARE v_date_sk INT;
-    
-    -- Error handling
-    DECLARE EXIT HANDLER FOR SQLEXCEPTION
-    BEGIN
-        ROLLBACK;
-        GET DIAGNOSTICS CONDITION 1
-            @error_code = MYSQL_ERRNO,
-            @error_message = MESSAGE_TEXT;
-        
-        INSERT INTO fahasa_control.logs (
-            batch_id, procedure_name, status, error_message, 
-            start_time, end_time
-        ) VALUES (
-            p_batch_id, v_procedure_name, 'FAILED', 
-            CONCAT('Error ', @error_code, ': ', @error_message),
-            v_start_time, CURRENT_TIMESTAMP
-        );
-        
-        RESIGNAL;
-    END;
     
     START TRANSACTION;
     
-    -- Get current date surrogate key
+    -- Get date_sk for today
     SELECT date_sk INTO v_date_sk 
     FROM date_dim 
     WHERE full_date = CURRENT_DATE;
     
-    -- Log procedure start
-    INSERT INTO fahasa_control.logs (
-        batch_id, procedure_name, status, message, start_time
-    ) VALUES (
-        p_batch_id, v_procedure_name, 'STARTED', 
-        CONCAT('Starting daily metrics load for date_sk: ', v_date_sk), v_start_time
-    );
+    -- If not found, generate one
+    IF v_date_sk IS NULL THEN
+        SET v_date_sk = YEAR(CURRENT_DATE) * 10000 + MONTH(CURRENT_DATE) * 100 + DAY(CURRENT_DATE);
+    END IF;
     
-    -- ================================================
-    -- STEP 1: Remove today's records if they exist (idempotent)
-    -- ================================================
+    -- Clear existing data for today
     DELETE FROM fact_daily_product_metrics 
     WHERE date_key = v_date_sk;
     
-    -- ================================================
-    -- STEP 2: Insert new fact records
-    -- ================================================
+    -- Insert new data with proper NULL handling
     INSERT INTO fact_daily_product_metrics (
         product_id,
         date_key,
@@ -1308,13 +1196,7 @@ BEGIN
         sold_today
     )
     SELECT 
-        COALESCE(p.id, 
-            CASE 
-                WHEN s.url IS NOT NULL 
-                THEN (SELECT id FROM fahasa_dw.product_dim WHERE product_nk = s.url AND is_current = TRUE LIMIT 1)
-                ELSE 1
-            END, 1
-        ) as product_id,
+        COALESCE(p.id, 1) as product_id,
         v_date_sk as date_key,
         COALESCE(NULLIF(s.original_price, 0), 150000) as original_price,
         COALESCE(NULLIF(s.discount_price, 0), 120000) as discount_price,
@@ -1338,30 +1220,20 @@ BEGIN
             END, 5
         ) as sold_today
     FROM fahasa_staging.staging_books s
-    -- Join with dimension tables
-    LEFT JOIN fahasa_dw.product_dim p ON s.url = p.product_nk AND p.is_current = TRUE
+    LEFT JOIN fahasa_dw.product_dim p ON s.url = p.url_path
     WHERE s.url IS NOT NULL 
       AND TRIM(s.url) != ''
       AND s.title IS NOT NULL
       AND TRIM(s.title) != '';
-    
+      
     SET v_new_records = ROW_COUNT();
-    
     COMMIT;
     
-    -- Log successful completion
-    INSERT INTO fahasa_control.logs (
-        batch_id, procedure_name, status, message, 
-        records_processed, records_inserted, records_updated,
-        start_time, end_time
-    ) VALUES (
-        p_batch_id, v_procedure_name, 'COMPLETED',
-        CONCAT('Daily metrics loaded successfully. Records: ', v_new_records, 
-               ' for date_sk: ', v_date_sk),
-        v_new_records, v_new_records, 0,
-        v_start_time, CURRENT_TIMESTAMP
-    );
-    
+    SELECT 
+        'Daily metrics loaded successfully' as message,
+        v_new_records as records_inserted,
+        v_date_sk as date_key_used;
+        
 END
 $$
 
@@ -1373,7 +1245,7 @@ DELIMITER ;
 -- Procedure: sp_load_fact_metrics_existing
 -- Type: PROCEDURE
 -- Created: root@localhost
--- Modified: 2025-11-20 01:05:24
+-- Modified: 2025-11-23 17:46:29
 -- ==================================================
 
 DROP PROCEDURE IF EXISTS `sp_load_fact_metrics_existing`;
@@ -1385,14 +1257,13 @@ BEGIN
     DECLARE v_new_records INT DEFAULT 0;
     DECLARE v_date_sk INT;
     
-    -- Get today date_sk from date_dim table
     SELECT date_sk INTO v_date_sk 
     FROM date_dim 
     WHERE full_date = CURRENT_DATE;
     
-    -- If date not found, skip
     IF v_date_sk IS NULL THEN
-        SELECT 'No date_sk found for today' as message, 0 as new_records, 0 as date_sk;
+        SET v_date_sk = YEAR(CURRENT_DATE) * 10000 + MONTH(CURRENT_DATE) * 100 + DAY(CURRENT_DATE);
+        SELECT 'Generated date_sk for today' as message, 0 as new_records, v_date_sk as date_sk;
     ELSE
         DELETE FROM fact_daily_product_metrics WHERE date_key = v_date_sk;
         
@@ -1425,7 +1296,7 @@ BEGIN
                 END, 5
             ) as sold_today
         FROM fahasa_staging.staging_books s
-        LEFT JOIN fahasa_dw.product_dim p ON s.url = p.product_nk AND p.is_current = TRUE
+        LEFT JOIN fahasa_dw.product_dim p ON s.url = p.url_path
         WHERE s.url IS NOT NULL AND TRIM(s.url) != ''
           AND s.title IS NOT NULL AND TRIM(s.title) != '';
         
@@ -1443,7 +1314,7 @@ DELIMITER ;
 -- Procedure: sp_load_product_dim
 -- Type: PROCEDURE
 -- Created: root@localhost
--- Modified: 2025-11-21 17:05:06
+-- Modified: 2025-11-23 17:52:10
 -- ==================================================
 
 DROP PROCEDURE IF EXISTS `sp_load_product_dim`;
@@ -1498,7 +1369,7 @@ DELIMITER ;
 -- Procedure: sp_load_product_dim_existing
 -- Type: PROCEDURE
 -- Created: root@localhost
--- Modified: 2025-11-20 01:04:05
+-- Modified: 2025-11-23 17:52:10
 -- ==================================================
 
 DROP PROCEDURE IF EXISTS `sp_load_product_dim_existing`;
@@ -1507,52 +1378,52 @@ DELIMITER $$
 
 CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_load_product_dim_existing`()
 BEGIN
-            DECLARE v_new_records INT DEFAULT 0;
-            
-            INSERT IGNORE INTO product_dim (
-                product_name, language, page_count, weight, dimensions,
-                isbn, thumbnail_url, url_path, short_description, is_deleted
-            )
-            SELECT DISTINCT
-                s.title as product_name,
-                s.language,
-                s.page_count,
-                s.weight,
-                s.dimensions,
-                COALESCE(NULLIF(TRIM(s.isbn), ''), 
-                        CASE 
-                            WHEN s.url IS NOT NULL 
-                            THEN CONCAT('ISBN-', SUBSTRING(MD5(s.url), 1, 10))
-                            ELSE CONCAT('ISBN-', LPAD(ROW_NUMBER() OVER (ORDER BY s.title), 10, '0'))
-                        END
-                ) as isbn,
-                COALESCE(NULLIF(TRIM(s.url_img), ''), 
-                        CASE 
-                            WHEN s.title IS NOT NULL
-                            THEN CONCAT('/images/', SUBSTRING(MD5(s.title), 1, 8), '.jpg')
-                            ELSE '/images/default.jpg'
-                        END
-                ) as thumbnail_url,
-                s.url as url_path,
-                COALESCE(NULLIF(TRIM(s.description), ''), 
-                        CASE 
-                            WHEN s.title IS NOT NULL 
-                            THEN CONCAT('Sản phẩm: ', LEFT(s.title, 200), '. Thông tin chi tiết sẽ được cập nhật.')
-                            ELSE 'Thông tin sản phẩm đang được cập nhật.'
-                        END
-                ) as short_description,
-                FALSE as is_deleted
-            FROM fahasa_staging.staging_books s
-            WHERE s.url IS NOT NULL 
-              AND TRIM(s.url) != ''
-              AND NOT EXISTS (
-                  SELECT 1 FROM product_dim p 
-                  WHERE p.url_path = s.url
-              );
-            
-            SET v_new_records = ROW_COUNT();
-            SELECT 'Products loaded successfully' as message, v_new_records as new_records;
-        END
+    DECLARE v_new_records INT DEFAULT 0;
+    
+    INSERT IGNORE INTO product_dim (
+        product_name, language, page_count, weight, dimensions,
+        isbn, thumbnail_url, url_path, short_description, is_deleted
+    )
+    SELECT DISTINCT
+        s.title as product_name,
+        s.language,
+        s.page_count,
+        s.weight,
+        s.dimensions,
+        COALESCE(NULLIF(TRIM(s.isbn), ''), 
+                CASE 
+                    WHEN s.url IS NOT NULL 
+                    THEN CONCAT('ISBN-', SUBSTRING(MD5(s.url), 1, 10))
+                    ELSE CONCAT('ISBN-', LPAD(ROW_NUMBER() OVER (ORDER BY s.title), 10, '0'))
+                END
+        ) as isbn,
+        COALESCE(NULLIF(TRIM(s.url_img), ''), 
+                CASE 
+                    WHEN s.title IS NOT NULL
+                    THEN CONCAT('/images/', SUBSTRING(MD5(s.title), 1, 8), '.jpg')
+                    ELSE '/images/default.jpg'
+                END
+        ) as thumbnail_url,
+        s.url as url_path,
+        COALESCE(NULLIF(TRIM(s.description), ''), 
+                CASE 
+                    WHEN s.title IS NOT NULL 
+                    THEN CONCAT('Sản phẩm: ', LEFT(s.title, 200), '. Thông tin chi tiết sẽ được cập nhật.')
+                    ELSE 'Thông tin sản phẩm đang được cập nhật.'
+                END
+        ) as short_description,
+        FALSE as is_deleted
+    FROM fahasa_staging.staging_books s
+    WHERE s.url IS NOT NULL 
+      AND TRIM(s.url) != ''
+      AND NOT EXISTS (
+          SELECT 1 FROM product_dim p 
+          WHERE p.url_path = s.url
+      );
+    
+    SET v_new_records = ROW_COUNT();
+    SELECT 'Products loaded successfully' as message, v_new_records as new_records;
+END
 $$
 
 DELIMITER ;
@@ -2173,8 +2044,7 @@ DELIMITER ;
 -- Procedure: sp_populate_bridge_book_categories
 -- Type: PROCEDURE
 -- Created: root@localhost
--- Modified: 2025-11-23 17:30:00 (BRIDGE NULL FIX)
--- FIXED: Ensures no NULL values in bridge table, creates proper relationships
+-- Modified: 2025-11-23 17:13:24
 -- ==================================================
 
 DROP PROCEDURE IF EXISTS `sp_populate_bridge_book_categories`;
@@ -2265,8 +2135,44 @@ BEGIN
         v_categories_count as categories_count,
         v_bridge_count as bridge_count,
         'NO_NULL_BRIDGE_GUARANTEED' as status,
-        CONCAT('✅ Bridge: ', v_bridge_count, ' records, NO NULL columns') as summary;
+        'BRIDGE_NULL_FIX_COMPLETE' as fix_status;
 END
+$$
+
+DELIMITER ;
+
+-- --------------------------------------------------
+
+-- ==================================================
+-- Procedure: sp_populate_bridge_book_categories_fixed
+-- Type: PROCEDURE
+-- Created: root@localhost
+-- Modified: 2025-11-23 16:46:50
+-- ==================================================
+
+DROP PROCEDURE IF EXISTS `sp_populate_bridge_book_categories_fixed`;
+
+DELIMITER $$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_populate_bridge_book_categories_fixed`()
+BEGIN
+        DELETE FROM bridge_book_categories;
+        
+        INSERT INTO bridge_book_categories (
+            book_sk, category_sk, allocation_factor, 
+            effective_date, expiry_date, is_current
+        )
+        SELECT DISTINCT
+            pcb.product_id as book_sk,
+            pcb.category_id as category_sk, 
+            1.0000 as allocation_factor,
+            CURDATE() as effective_date,
+            '9999-12-31' as expiry_date,
+            1 as is_current
+        FROM product_category_bridge pcb
+        INNER JOIN product_dim pd ON pd.id = pcb.product_id
+        INNER JOIN category_dim cd ON cd.category_id = pcb.category_id;
+    END
 $$
 
 DELIMITER ;
@@ -3283,6 +3189,38 @@ BEGIN
     SELECT CONCAT('Simple ETL completed in ', 
         TIMESTAMPDIFF(SECOND, v_start_time, CURRENT_TIMESTAMP), ' seconds') as completion_status;
 END
+$$
+
+DELIMITER ;
+
+-- --------------------------------------------------
+
+-- ==================================================
+-- Procedure: sp_sync_dim_categories
+-- Type: PROCEDURE
+-- Created: root@localhost
+-- Modified: 2025-11-23 16:46:50
+-- ==================================================
+
+DROP PROCEDURE IF EXISTS `sp_sync_dim_categories`;
+
+DELIMITER $$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_sync_dim_categories`()
+BEGIN
+        DELETE FROM dim_categories;
+        
+        INSERT INTO dim_categories (
+            category_sk, category_nk, category_level_1,
+            category_level_2, category_level_3, category_path
+        )
+        SELECT 
+            category_id as category_sk,
+            CONCAT('CAT_', category_id) as category_nk,
+            level_1, level_2, level_3, category_path
+        FROM category_dim
+        WHERE category_id IS NOT NULL;
+    END
 $$
 
 DELIMITER ;
