@@ -21,12 +21,12 @@ def connect_db(database_name):
         )
         return connection, connection.cursor()
     except Exception as e:
-        print(f"❌ Kết nối {database_name} thất bại: {e}")
+        print(f" Ket noi {database_name} that bai: {e}")
         return None, None
 
 def truncate_database(database_name):
     """Truncate tất cả tables trong database"""
-    print(f"🗑️  Truncating database: {database_name}")
+    print(f" Truncating database: {database_name}")
     
     connection, cursor = connect_db(database_name)
     if not connection:
@@ -41,10 +41,10 @@ def truncate_database(database_name):
         tables = [row[0] for row in cursor.fetchall()]
         
         if not tables:
-            print("ℹ️  Database rỗng!")
+            print(" Database rong!")
             return True
         
-        print(f"📊 Tìm thấy {len(tables)} tables")
+        print(f" Tim thay {len(tables)} tables")
         
         total_deleted = 0
         success_count = 0
@@ -62,10 +62,10 @@ def truncate_database(database_name):
                 total_deleted += count
                 success_count += 1
                 
-                print(f"   ✅ {table}: {count:,} records deleted")
+                print(f"   {table}: {count:,} records deleted")
                 
             except Exception as e:
-                print(f"   ❌ {table}: {e}")
+                print(f"   {table}: {e}")
         
         # Reset AUTO_INCREMENT
         cursor.execute(f"""
@@ -83,14 +83,14 @@ def truncate_database(database_name):
         
         connection.commit()
         
-        print(f"\n📊 Kết quả:")
-        print(f"   ✅ Success: {success_count}/{len(tables)} tables")
-        print(f"   🗑️  Deleted: {total_deleted:,} records")
+        print(f"\n Ket qua:")
+        print(f"   Success: {success_count}/{len(tables)} tables")
+        print(f"   Deleted: {total_deleted:,} records")
         
         return success_count == len(tables)
         
     except Exception as e:
-        print(f"❌ Lỗi: {e}")
+        print(f" Loi: {e}")
         return False
     finally:
         cursor.close()
@@ -98,7 +98,7 @@ def truncate_database(database_name):
 
 def interactive_mode():
     """Chế độ tương tác để chọn database"""
-    print("🗑️  INTERACTIVE DATABASE TRUNCATE")
+    print(" INTERACTIVE DATABASE TRUNCATE")
     print("=" * 40)
     
     # Lấy danh sách databases
@@ -117,16 +117,16 @@ def interactive_mode():
         cursor.close()
         conn.close()
         
-        print("📋 Available databases:")
+        print(" Available databases:")
         for i, db in enumerate(databases, 1):
             print(f"   {i}. {db}")
         print("   0. Exit")
         
         while True:
-            choice = input(f"\n❓ Chọn database (0-{len(databases)}): ").strip()
+            choice = input(f"\n Chon database (0-{len(databases)}): ").strip()
             
             if choice == '0':
-                print("👋 Goodbye!")
+                print(" Goodbye!")
                 return None
             
             try:
@@ -134,18 +134,18 @@ def interactive_mode():
                 if 0 <= index < len(databases):
                     return databases[index]
                 else:
-                    print("❌ Số không hợp lệ!")
+                    print(" So khong hop le!")
             except ValueError:
-                print("❌ Vui lòng nhập số!")
+                print(" Vui long nhap so!")
                 
     except Exception as e:
-        print(f"❌ Lỗi kết nối: {e}")
+        print(f" Loi ket noi: {e}")
         return None
 
 def main():
-    print("🗑️  UNIVERSAL DATABASE TRUNCATE")
+    print(" UNIVERSAL DATABASE TRUNCATE")
     print("=" * 50)
-    print(f"⏰ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f" {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print()
     
     # Kiểm tra arguments
@@ -156,17 +156,17 @@ def main():
         if not database_name:
             return
     
-    print(f"🎯 Target Database: {database_name}")
+    print(f" Target Database: {database_name}")
     
     # Xác nhận
-    print(f"\n⚠️  CẢNH BÁO:")
-    print(f"   Sẽ xóa TẤT CẢ dữ liệu trong database: {database_name}")
-    print(f"   Hành động này KHÔNG THỂ HOÀN TÁC!")
+    print(f"\n CANH BAO:")
+    print(f"   Se xoa TAT CA du lieu trong database: {database_name}")
+    print(f"   Hanh dong nay KHONG THE HOAN TAC!")
     
-    confirm = input(f"\n❓ Tiếp tục? (yes/no): ").strip().lower()
+    confirm = input(f"\n Tiep tuc? (yes/no): ").strip().lower()
     
     if confirm not in ['yes', 'y']:
-        print("❌ Đã hủy!")
+        print(" Da huy!")
         return
     
     # Truncate database
@@ -174,11 +174,11 @@ def main():
     success = truncate_database(database_name)
     
     if success:
-        print(f"\n🎉 THÀNH CÔNG!")
-        print(f"✅ Database {database_name} đã được làm sạch hoàn toàn!")
+        print(f"\n THANH CONG!")
+        print(f" Database {database_name} da duoc lam sach hoan toan!")
     else:
-        print(f"\n❌ THẤT BẠI!")
-        print(f"⚠️  Một số tables có thể chưa được truncate!")
+        print(f"\n THAT BAI!")
+        print(f" Mot so tables co the chua duoc truncate!")
 
 if __name__ == "__main__":
     main()
