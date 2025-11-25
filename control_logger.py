@@ -55,7 +55,7 @@ class ControlLogger:
             cursor.close()
             conn.close()
             
-            print(f"📋 Control Log Started: {operation_name} (ID: {log_id})")
+            print(f"Control Log Started: {operation_name} (ID: {log_id})")
             return log_id
             
         except Exception as e:
@@ -99,8 +99,8 @@ class ControlLogger:
             result = cursor.fetchone()
             if result:
                 operation_name, duration = result
-                print(f"📋 Control Log Ended: {operation_name} - {status} ({duration}s)")
-                print(f"   📊 Records: {records_processed:,} processed, {records_inserted:,} inserted")
+                print(f"Control Log Ended: {operation_name} - {status} ({duration}s)")
+                print(f"   Records: {records_processed:,} processed, {records_inserted:,} inserted")
             
             conn.commit()
             cursor.close()
@@ -135,7 +135,7 @@ class ControlLogger:
             cursor.close()
             conn.close()
             
-            print(f"   ✅ Quality Check: {table_name} - {check_type} - {status}")
+            print(f"   Quality Check: {table_name} - {check_type} - {status}")
             return quality_id
             
         except Exception as e:
@@ -262,23 +262,23 @@ class ETLLogger:
 # Example usage functions
 def demo_crawl_with_logging():
     """Demo crawl operation with control logging"""
-    print("🕷️ DEMO: Crawl with Control Logging")
+    print("DEMO: Crawl with Control Logging")
     print("-" * 40)
     
     with CrawlLogger('demo_crawl_operation', {'source': 'fahasa', 'mode': 'demo'}) as crawl_log:
         # Simulate crawl work
         import time
         
-        print("   🔍 Starting crawl simulation...")
+        print("   Starting crawl simulation...")
         time.sleep(1)
         
         crawl_log.update_progress(processed=50, inserted=45)
-        print("   📊 Processed 50 books, inserted 45...")
+        print("   Processed 50 books, inserted 45...")
         
         time.sleep(1)
         
         crawl_log.update_progress(processed=100, inserted=95)
-        print("   📊 Processed 100 books, inserted 95...")
+        print("   Processed 100 books, inserted 95...")
         
         # Quality check
         crawl_log.logger.log_quality_check(
@@ -286,27 +286,27 @@ def demo_crawl_with_logging():
             'Crawl resulted in expected number of records'
         )
     
-    print("   ✅ Crawl operation logged successfully")
+    print("   Crawl operation logged successfully")
 
 def demo_etl_with_logging():
     """Demo ETL operation with control logging"""
-    print("\n⚙️ DEMO: ETL with Control Logging")
+    print("\nDEMO: ETL with Control Logging")
     print("-" * 40)
     
     with ETLLogger('demo_etl_operation', {'procedures': 18, 'mode': 'demo'}) as etl_log:
         # Simulate ETL work
         import time
         
-        print("   🔄 Starting ETL simulation...")
+        print("   Starting ETL simulation...")
         time.sleep(1)
         
         etl_log.update_progress(processed=50000, inserted=48000, updated=2000)
-        print("   📊 Processed 50K records...")
+        print("   Processed 50K records...")
         
         time.sleep(1)
         
         etl_log.update_progress(processed=100000, inserted=95000, updated=5000)
-        print("   📊 Processed 100K records...")
+        print("   Processed 100K records...")
         
         # Quality checks
         etl_log.logger.log_quality_check(
@@ -314,11 +314,11 @@ def demo_etl_with_logging():
             'ETL populated fact table successfully'
         )
     
-    print("   ✅ ETL operation logged successfully")
+    print("   ETL operation logged successfully")
 
 def show_operation_summary():
     """Show operation summary"""
-    print("\n📊 OPERATION SUMMARY")
+    print("\nOPERATION SUMMARY")
     print("-" * 40)
     
     logger = ControlLogger()
@@ -330,18 +330,18 @@ def show_operation_summary():
             success_rate = (success_count / total_ops * 100) if total_ops > 0 else 0
             avg_duration = avg_duration if avg_duration else 0
             
-            print(f"   📈 {op_type}:")
+            print(f"   {op_type}:")
             print(f"      • Total Operations: {total_ops}")
             print(f"      • Total Records: {total_records:,}")
             print(f"      • Success Rate: {success_rate:.1f}%")
             print(f"      • Avg Duration: {avg_duration:.1f}s")
     else:
-        print("   ⚠️ No statistics available")
+        print("   No statistics available")
 
 def main():
     """Main demo function"""
-    print("🔧 CONTROL LOGGING INTEGRATION DEMO")
-    print(f"⏰ Started: {datetime.now()}")
+    print("CONTROL LOGGING INTEGRATION DEMO")
+    print(f"Started: {datetime.now()}")
     print("=" * 50)
     
     # Demo both logging types
@@ -352,9 +352,9 @@ def main():
     show_operation_summary()
     
     print("\n" + "=" * 50)
-    print("🎉 CONTROL LOGGING INTEGRATION READY!")
-    print("✅ Can be used in fahasa_bulk_scraper.py")
-    print("✅ Can be used in daily_etl.py")
+    print("CONTROL LOGGING INTEGRATION READY!")
+    print("Can be used in fahasa_bulk_scraper.py")
+    print("Can be used in daily_etl.py")
     print("=" * 50)
 
 if __name__ == "__main__":

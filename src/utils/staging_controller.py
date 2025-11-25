@@ -34,12 +34,12 @@ class StagingController:
             batch_id = cur.lastrowid
             conn.commit()
             
-            print(f"✅ Started batch {batch_id} for {source_type}")
+            print(f"Started batch {batch_id} for {source_type}")
             return batch_id
             
         except Exception as e:
             conn.rollback()
-            print(f"❌ Error starting batch: {e}")
+            print(f"Error starting batch: {e}")
             raise
         finally:
             cur.close()
@@ -77,7 +77,7 @@ class StagingController:
                 
         except Exception as e:
             conn.rollback()
-            print(f"❌ Error updating batch progress: {e}")
+            print(f"Error updating batch progress: {e}")
             raise
         finally:
             cur.close()
@@ -109,11 +109,11 @@ class StagingController:
             cur.execute(update_sql, (status, error_message, error_count, batch_id))
             conn.commit()
             
-            print(f"✅ Finished batch {batch_id} with status: {status}")
+            print(f"Finished batch {batch_id} with status: {status}")
             
         except Exception as e:
             conn.rollback()
-            print(f"❌ Error finishing batch: {e}")
+            print(f"Error finishing batch: {e}")
             raise
         finally:
             cur.close()
@@ -188,16 +188,16 @@ class StagingController:
                     }
                     results.append(result)
                     
-                    print(f"📊 {rule_name}: {status} - {failed_count}/{total_count} failed ({failure_rate:.1f}%)")
+                    print(f"{rule_name}: {status} - {failed_count}/{total_count} failed ({failure_rate:.1f}%)")
                     
                     # Stop if blocking rule fails critically
                     if is_blocking and status == 'CRITICAL':
-                        print(f"🚫 BLOCKING rule {rule_name} failed critically! Stopping quality checks.")
+                        print(f"BLOCKING rule {rule_name} failed critically! Stopping quality checks.")
                         self.finish_batch(batch_id, 'FAILED', f"Blocking quality check failed: {rule_name}")
                         break
                         
                 except Exception as rule_error:
-                    print(f"❌ Error running rule {rule_name}: {rule_error}")
+                    print(f"Error running rule {rule_name}: {rule_error}")
                     # Log failed quality check
                     quality_sql = """
                         INSERT INTO staging_data_quality 
@@ -211,7 +211,7 @@ class StagingController:
             
         except Exception as e:
             conn.rollback()
-            print(f"❌ Error running data quality checks: {e}")
+            print(f"Error running data quality checks: {e}")
             raise
         finally:
             cur.close()
@@ -285,7 +285,7 @@ class StagingDataValidator:
         blocking_failures = [r for r in results if r['is_blocking'] and r['status'] == 'CRITICAL']
         
         if blocking_failures:
-            print(f"❌ Batch {batch_id} FAILED validation - {len(blocking_failures)} blocking issues")
+            print(f"Batch {batch_id} FAILED validation - {len(blocking_failures)} blocking issues")
             return False
         
         # Count warnings and criticals
@@ -293,12 +293,12 @@ class StagingDataValidator:
         criticals = len([r for r in results if r['status'] == 'CRITICAL'])
         
         if criticals > 0:
-            print(f"⚠️  Batch {batch_id} has {criticals} critical issues (non-blocking)")
+            print(f"Batch {batch_id} has {criticals} critical issues (non-blocking)")
         
         if warnings > 0:
-            print(f"⚠️  Batch {batch_id} has {warnings} warnings")
+            print(f"Batch {batch_id} has {warnings} warnings")
         
-        print(f"✅ Batch {batch_id} PASSED validation")
+        print(f"Batch {batch_id} PASSED validation")
         return True
     
     def mark_invalid_records(self, batch_id: int):
@@ -326,11 +326,11 @@ class StagingDataValidator:
                 cur.execute(update_sql, (error_msg, batch_id))
             
             conn.commit()
-            print(f"✅ Marked invalid records for batch {batch_id}")
+            print(f"Marked invalid records for batch {batch_id}")
             
         except Exception as e:
             conn.rollback()
-            print(f"❌ Error marking invalid records: {e}")
+            print(f"Error marking invalid records: {e}")
             raise
         finally:
             cur.close()
@@ -378,7 +378,7 @@ def example_usage():
         
         # Get summary
         summary = controller.get_batch_summary(batch_id)
-        print(f"📋 Batch Summary: {summary}")
+        print(f"Batch Summary: {summary}")
         
     except Exception as e:
         controller.finish_batch(batch_id, 'FAILED', str(e), 1)

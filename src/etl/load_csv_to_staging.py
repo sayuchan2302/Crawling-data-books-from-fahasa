@@ -26,16 +26,16 @@ def load_csv_to_staging(csv_file_path):
     try:
         # Check if file exists
         if not os.path.exists(csv_file_path):
-            print(f"❌ File không tồn tại: {csv_file_path}")
+            print(f"File không tồn tại: {csv_file_path}")
             return False
         
         # Read CSV
-        print(f"📄 Đọc file CSV: {csv_file_path}")
+        print(f"Đọc file CSV: {csv_file_path}")
         df = pd.read_csv(csv_file_path)
-        print(f"📊 Tìm thấy {len(df)} sách trong CSV")
+        print(f"Tìm thấy {len(df)} sách trong CSV")
         
         if len(df) == 0:
-            print("⚠️ File CSV trống")
+            print("File CSV trống")
             return True
         
         # Connect to MySQL
@@ -101,7 +101,7 @@ def load_csv_to_staging(csv_file_path):
                 success_count += 1
                 
             except Exception as e:
-                print(f"❌ Lỗi insert row {idx + 1}: {e}")
+                print(f"Lỗi insert row {idx + 1}: {e}")
                 error_count += 1
         
         # Commit changes
@@ -109,15 +109,15 @@ def load_csv_to_staging(csv_file_path):
         cursor.close()
         conn.close()
         
-        print(f"\n✅ HOÀN TẤT LOAD CSV!")
-        print(f"📊 Thành công: {success_count} sách")
-        print(f"❌ Lỗi: {error_count} sách")
-        print(f"📁 File: {csv_file_path}")
+        print(f"\nHOÀN TẤT LOAD CSV!")
+        print(f"Thành công: {success_count} sách")
+        print(f"Lỗi: {error_count} sách")
+        print(f"File: {csv_file_path}")
         
         return success_count > 0
         
     except Exception as e:
-        print(f"❌ Lỗi load CSV: {e}")
+        print(f"Lỗi load CSV: {e}")
         return False
 
 def get_latest_csv_file():
@@ -132,25 +132,25 @@ def get_latest_csv_file():
         )
         
         if not os.path.exists(backup_dir):
-            print(f"❌ Folder backup không tồn tại: {backup_dir}")
+            print(f"Folder backup không tồn tại: {backup_dir}")
             return None
         
         # Find all CSV files
         csv_files = [f for f in os.listdir(backup_dir) if f.endswith('.csv')]
         
         if not csv_files:
-            print(f"❌ Không tìm thấy file CSV trong: {backup_dir}")
+            print(f"Không tìm thấy file CSV trong: {backup_dir}")
             return None
         
         # Get latest CSV file
         csv_files.sort(reverse=True)
         latest_csv = os.path.join(backup_dir, csv_files[0])
         
-        print(f"🔍 File CSV mới nhất: {latest_csv}")
+        print(f"File CSV mới nhất: {latest_csv}")
         return latest_csv
         
     except Exception as e:
-        print(f"❌ Lỗi tìm file CSV: {e}")
+        print(f"Lỗi tìm file CSV: {e}")
         return None
 
 def main():
@@ -165,7 +165,7 @@ def main():
         csv_file = get_latest_csv_file()
         
     if not csv_file:
-        print("❌ Không tìm thấy file CSV để load")
+        print("Không tìm thấy file CSV để load")
         return False
     
     return load_csv_to_staging(csv_file)

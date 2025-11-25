@@ -34,7 +34,7 @@ class ControlLogger:
         try:
             return mysql.connector.connect(**self.config)
         except Error as e:
-            print(f"❌ Control DB connection error: {e}")
+            print(f"Control DB connection error: {e}")
             return None
     
     def create_config(self, config_data):
@@ -144,21 +144,18 @@ class ControlLogger:
             
             # Print log để user thấy
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            status_emoji = {"SUCCESS": "✅", "FAILED": "❌", "RUNNING": "🔄"}
-            level_emoji = {"INFO": "ℹ️", "WARN": "⚠️", "ERROR": "💥"}
-            
-            print(f"{level_emoji.get(log_level.value, 'ℹ️')} {timestamp} [{log_level.value}] {status_emoji.get(status.value, '🔄')} {operation_type}")
+            print(f"{timestamp} [{log_level.value}] {operation_type}")
             if count > 0:
-                print(f"   📊 Records: {count:,}")
+                print(f"   Records: {count:,}")
             if destination_path:
-                print(f"   📁 Path: {destination_path}")
+                print(f"   Path: {destination_path}")
             if error_message:
-                print(f"   💬 Message: {error_message}")
+                print(f"   Message: {error_message}")
                 
             return log_id
             
         except Error as e:
-            print(f"❌ Error logging operation: {e}")
+            print(f"Error logging operation: {e}")
             if conn:
                 conn.close()
             return None

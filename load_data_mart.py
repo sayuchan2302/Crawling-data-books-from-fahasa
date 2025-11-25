@@ -20,7 +20,7 @@ try:
     from control_logger import ControlLogger
     logger_available = True
 except ImportError:
-    print("⚠️ Control logger not available")
+    print("Control logger not available")
     logger_available = False
 
 class DataMartLoader:
@@ -42,12 +42,12 @@ class DataMartLoader:
         try:
             # Connect to DataMart (stored procedures handle DW access)
             self.mart_conn = mysql.connector.connect(**self.mart_config)
-            print("✅ Connected to fahasa_datamart")
+            print("Connected to fahasa_datamart")
             
             return True
             
         except Exception as e:
-            print(f"❌ Database connection failed: {e}")
+            print(f"Database connection failed: {e}")
             return False
     
     def disconnect_database(self):
@@ -57,13 +57,13 @@ class DataMartLoader:
     
     def call_stored_procedure(self, sp_name, description):
         """Execute a stored procedure and return status"""
-        print(f"\n📊 {description}...")
+        print(f"\n{description}...")
         
         try:
             cursor = self.mart_conn.cursor()
             
             # Call the stored procedure
-            print(f"   🔄 Executing {sp_name}...")
+            print(f"   Executing {sp_name}...")
             cursor.callproc(sp_name)
             
             # Commit the transaction
@@ -73,16 +73,16 @@ class DataMartLoader:
             for result in cursor.stored_results():
                 result_data = result.fetchall()
                 if result_data:
-                    print(f"   📋 Procedure output: {result_data}")
+                    print(f"   Procedure output: {result_data}")
             
             cursor.close()
-            print(f"   ✅ {sp_name} completed successfully")
+            print(f"   {sp_name} completed successfully")
             return True
             
         except Exception as e:
-            print(f"   ❌ Error executing {sp_name}: {e}")
+            print(f"   Error executing {sp_name}: {e}")
             if "doesn't exist" in str(e):
-                print(f"      💡 Make sure the stored procedure {sp_name} is created in fahasa_datamart")
+                print(f"      Make sure the stored procedure {sp_name} is created in fahasa_datamart")
             traceback.print_exc()
             return False
     
@@ -237,7 +237,7 @@ class DataMartLoader:
     
     def verify_datamart(self):
         """Verify loaded data in datamart"""
-        print("\n🔍 VERIFYING DATAMART DATA...")
+        print("\nVERIFYING DATAMART DATA...")
         
         try:
             cursor = self.mart_conn.cursor()
@@ -257,7 +257,7 @@ class DataMartLoader:
                 count = cursor.fetchone()[0]
                 total_records += count
                 
-                print(f"   📊 {table}: {count:,} records")
+                print(f"   {table}: {count:,} records")
                 
                 # Sample data check
                 if count > 0:
@@ -267,18 +267,18 @@ class DataMartLoader:
                 else:
                     print(f"      ⚠️ Table is empty")
             
-            print(f"\n📊 TOTAL DATAMART RECORDS: {total_records:,}")
+            print(f"\nTOTAL DATAMART RECORDS: {total_records:,}")
             
             cursor.close()
             return total_records > 0
             
         except Exception as e:
-            print(f"❌ Verification error: {e}")
+            print(f"Verification error: {e}")
             return False
     
     def check_stored_procedures(self):
         """Check if all required stored procedures exist"""
-        print("\n🔍 CHECKING STORED PROCEDURES...")
+        print("\nCHECKING STORED PROCEDURES...")
         
         try:
             cursor = self.mart_conn.cursor()
@@ -305,7 +305,7 @@ class DataMartLoader:
                 exists = cursor.fetchone()[0] > 0
                 
                 if exists:
-                    print(f"   ✅ {sp}")
+                    print(f"   {sp}")
                 else:
                     print(f"   ❌ {sp} - MISSING")
                     missing_sps.append(sp)
@@ -313,15 +313,15 @@ class DataMartLoader:
             cursor.close()
             
             if missing_sps:
-                print(f"\n⚠️ MISSING STORED PROCEDURES: {len(missing_sps)}")
-                print("   💡 Please run fahasa_datamart_stored_procedures.sql first")
+                print(f"\nMISSING STORED PROCEDURES: {len(missing_sps)}")
+                print("   Please run fahasa_datamart_stored_procedures.sql first")
                 return False
             else:
-                print(f"\n✅ All stored procedures are available")
+                print(f"\nAll stored procedures are available")
                 return True
                 
         except Exception as e:
-            print(f"❌ Error checking stored procedures: {e}")
+            print(f"Error checking stored procedures: {e}")
             return False
     
     def run_full_load(self):
@@ -329,7 +329,7 @@ class DataMartLoader:
         load_id = None
         
         try:
-            print("🎯 FAHASA DATAMART LOAD PROCESS")
+            print("FAHASA DATAMART LOAD PROCESS")
             print("=" * 50)
             print(f"⏰ Start time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
             
@@ -343,7 +343,7 @@ class DataMartLoader:
                         target_table="fahasa_datamart.*"
                     )
                 except AttributeError:
-                    print("⚠️ Logger method not available, continuing without logging")
+                    print("Logger method not available, continuing without logging")
             
             # Connect to database
             if not self.connect_database():
@@ -369,11 +369,11 @@ class DataMartLoader:
                 try:
                     if loader_func():
                         success_count += 1
-                        print(f"   ✅ {name}: SUCCESS")
+                        print(f"   {name}: SUCCESS")
                     else:
-                        print(f"   ❌ {name}: FAILED")
+                        print(f"   {name}: FAILED")
                 except Exception as e:
-                    print(f"   ❌ {name}: ERROR - {e}")
+                    print(f"   {name}: ERROR - {e}")
             
             # Verify datamart
             verification_ok = self.verify_datamart()
@@ -394,23 +394,23 @@ class DataMartLoader:
                             target_table="fahasa_datamart.*"
                         )
                 except AttributeError:
-                    print("⚠️ Logger completion method not available")
+                    print("Logger completion method not available")
             
-            print(f"\n📊 FINAL RESULTS:")
-            print(f"   ✅ Success: {success_count}/{total_count} tables")
-            print(f"   ⚠️ Failed: {total_count - success_count}/{total_count} tables")
-            print(f"   🔍 Verification: {'PASSED' if verification_ok else 'FAILED'}")
+            print(f"\nFINAL RESULTS:")
+            print(f"   Success: {success_count}/{total_count} tables")
+            print(f"   Failed: {total_count - success_count}/{total_count} tables")
+            print(f"   Verification: {'PASSED' if verification_ok else 'FAILED'}")
             
             if success_count == total_count and verification_ok:
-                print(f"\n🎉 DATAMART LOAD COMPLETED SUCCESSFULLY!")
-                print(f"🚀 Ready for BI reporting and analytics!")
+                print(f"\nDATAMART LOAD COMPLETED SUCCESSFULLY!")
+                print(f"Ready for BI reporting and analytics!")
                 return True
             else:
-                print(f"\n⚠️ DATAMART LOAD PARTIALLY COMPLETED!")
+                print(f"\nDATAMART LOAD PARTIALLY COMPLETED!")
                 return False
                 
         except Exception as e:
-            print(f"\n❌ DATAMART LOAD FAILED: {e}")
+            print(f"\nDATAMART LOAD FAILED: {e}")
             if self.logger and load_id:
                 try:
                     self.logger.log_etl_error(
@@ -419,14 +419,14 @@ class DataMartLoader:
                         target_table="fahasa_datamart.*"
                     )
                 except AttributeError:
-                    print("⚠️ Logger error method not available")
+                    print("Logger error method not available")
             return False
         finally:
             self.disconnect_database()
 
 def main():
     """Main function for standalone execution"""
-    print("🎯 FAHASA DATAMART LOADER")
+    print("FAHASA DATAMART LOADER")
     print("Loading data from DW to DataMart using SQL Stored Procedures...")
     print()
     
@@ -434,10 +434,10 @@ def main():
     success = loader.run_full_load()
     
     if success:
-        print(f"\n✅ DataMart load completed successfully!")
+        print(f"\nDataMart load completed successfully!")
     else:
-        print(f"\n❌ DataMart load failed or incomplete!")
-        print(f"💡 Make sure fahasa_datamart_stored_procedures.sql has been executed")
+        print(f"\nDataMart load failed or incomplete!")
+        print(f"Make sure fahasa_datamart_stored_procedures.sql has been executed")
     
     return success
 

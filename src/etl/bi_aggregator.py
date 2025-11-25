@@ -16,7 +16,7 @@ try:
     from control_logger import ControlLogger
     logger_available = True
 except ImportError:
-    print("⚠️ Control logger not available")
+    print("Warning: Control logger not available")
     logger_available = False
 
 class BIAggregator:
@@ -42,7 +42,7 @@ class BIAggregator:
             self.connection = mysql.connector.connect(**self.config)
             return True
         except Exception as e:
-            print(f"❌ Database connection failed: {e}")
+            print(f"Database connection failed: {e}")
             return False
     
     def disconnect(self):
@@ -58,7 +58,7 @@ class BIAggregator:
         aggregate_log_id = None
         
         try:
-            print("🎯 STARTING BI AGGREGATES PROCESSING")
+            print("STARTING BI AGGREGATES PROCESSING")
             print("=" * 50)
             
             # Log aggregate start
@@ -110,7 +110,7 @@ class BIAggregator:
             
             for proc in procedures:
                 try:
-                    print(f"   🔄 Processing {proc['description']}...")
+                    print(f"   Processing {proc['description']}...")
                     
                     # Execute stored procedure
                     cursor.callproc(proc['name'])
@@ -120,12 +120,12 @@ class BIAggregator:
                         for result in cursor.stored_results():
                             rows = result.fetchall()
                             if rows:
-                                print(f"   📊 {proc['description']}: {rows[0][0]} records processed")
+                                print(f"   {proc['description']}: {rows[0][0]} records processed")
                     except:
                         # If no result set, just check table count
                         cursor.execute(f"SELECT COUNT(*) FROM {proc['table']}")
                         count = cursor.fetchone()[0]
-                        print(f"   📊 {proc['description']}: {count:,} total records")
+                        print(f"   {proc['description']}: {count:,} total records")
                     
                     success_count += 1
                     results.append({
@@ -134,7 +134,7 @@ class BIAggregator:
                         'status': 'SUCCESS'
                     })
                     
-                    print(f"   ✅ {proc['description']} completed")
+                    print(f"   {proc['description']} completed")
                     
                 except Exception as e:
                     results.append({
@@ -143,7 +143,7 @@ class BIAggregator:
                         'status': 'FAILED',
                         'error': str(e)
                     })
-                    print(f"   ⚠️ {proc['description']}: Failed - {e}")
+                    print(f"   {proc['description']}: Failed - {e}")
             
             # Commit all changes
             self.connection.commit()
@@ -154,12 +154,12 @@ class BIAggregator:
                 summary = f"BI Aggregates completed: {success_count}/{len(procedures)} successful"
                 self.logger.log_etl_success(aggregate_log_id, summary)
             
-            print(f"\n🎉 BI AGGREGATES COMPLETED: {success_count}/{len(procedures)} successful")
+            print(f"\nBI AGGREGATES COMPLETED: {success_count}/{len(procedures)} successful")
             
             return success_count, len(procedures), results
             
         except Exception as e:
-            print(f"\n❌ BI Aggregates failed: {e}")
+            print(f"\nBI Aggregates failed: {e}")
             if self.logger and aggregate_log_id:
                 self.logger.log_etl_error(aggregate_log_id, str(e))
             return 0, len(procedures) if 'procedures' in locals() else 0, []
@@ -176,16 +176,16 @@ class BIAggregator:
                 raise Exception("Failed to connect to database")
                 
             cursor = self.connection.cursor()
-            print(f"🔄 Running {procedure_name}...")
+            print(f"Running {procedure_name}...")
             
             cursor.callproc(procedure_name)
             self.connection.commit()
             
-            print(f"✅ {procedure_name} completed")
+            print(f" {procedure_name} completed")
             cursor.close()
             
         except Exception as e:
-            print(f"❌ {procedure_name} failed: {e}")
+            print(f" {procedure_name} failed: {e}")
             raise
         finally:
             self.disconnect()
@@ -206,7 +206,7 @@ class BIAggregator:
                 'rating_aggregate'
             ]
             
-            print("\n📊 BI AGGREGATE STATISTICS:")
+            print("\n BI AGGREGATE STATISTICS:")
             print("-" * 40)
             
             for table in tables:
@@ -220,7 +220,7 @@ class BIAggregator:
             cursor.close()
             
         except Exception as e:
-            print(f"❌ Cannot show aggregate stats: {e}")
+            print(f"Cannot show aggregate stats: {e}")
         finally:
             self.disconnect()
 
@@ -232,13 +232,13 @@ class BIAggregator:
                 cursor.execute("SELECT 1")
                 result = cursor.fetchone()
                 cursor.close()
-                print("✅ Database connection successful")
+                print("Database connection successful")
                 return True
             else:
-                print("❌ Database connection failed")
+                print("Database connection failed")
                 return False
         except Exception as e:
-            print(f"❌ Database connection test failed: {e}")
+            print(f"Database connection test failed: {e}")
             return False
         finally:
             self.disconnect()
@@ -246,7 +246,7 @@ class BIAggregator:
 
 def main():
     """Main function for standalone execution"""
-    print("🎯 FAHASA BI AGGREGATOR")
+    print(" FAHASA BI AGGREGATOR")
     print("Processing Data Warehouse aggregates...")
     print()
     
@@ -277,9 +277,9 @@ def main():
     success_count, total_count, results = aggregator.run_all_aggregates()
     
     # Show final summary
-    print(f"\n📊 FINAL SUMMARY:")
-    print(f"   ✅ Successful: {success_count}/{total_count}")
-    print(f"   ❌ Failed: {total_count - success_count}/{total_count}")
+    print(f"\n FINAL SUMMARY:")
+    print(f"   Successful: {success_count}/{total_count}")
+    print(f"   Failed: {total_count - success_count}/{total_count}")
     
     # Show aggregate stats
     aggregator.show_aggregate_stats()

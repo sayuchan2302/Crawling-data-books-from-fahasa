@@ -31,43 +31,43 @@ class DateDimLoader:
         """Connect to database"""
         try:
             self.conn = mysql.connector.connect(**self.config)
-            print("✅ Connected to fahasa_dw database")
+            print("Connected to fahasa_dw database")
             return True
         except Exception as e:
-            print(f"❌ Database connection failed: {e}")
+            print(f"Database connection failed: {e}")
             return False
     
     def disconnect_database(self):
         """Close database connection"""
         if self.conn:
             self.conn.close()
-            print("🔌 Database connection closed")
+            print("Database connection closed")
     
     def check_csv_file(self):
         """Check if CSV file exists and get basic info"""
         try:
             if not os.path.exists(self.csv_file):
-                print(f"❌ CSV file not found: {self.csv_file}")
+                print(f"CSV file not found: {self.csv_file}")
                 return False
             
             # Count rows
             with open(self.csv_file, 'r', encoding='utf-8') as f:
                 row_count = sum(1 for _ in f)
             
-            print(f"📄 CSV file: {self.csv_file}")
-            print(f"📊 Total rows: {row_count:,}")
+            print(f"CSV file: {self.csv_file}")
+            print(f"Total rows: {row_count:,}")
             
             # Show sample data
             with open(self.csv_file, 'r', encoding='utf-8') as f:
                 reader = csv.reader(f)
                 first_row = next(reader)
-                print(f"🔍 Sample row: {first_row}")
-                print(f"📋 Column count: {len(first_row)}")
+                print(f"Sample row: {first_row}")
+                print(f"Column count: {len(first_row)}")
             
             return True
             
         except Exception as e:
-            print(f"❌ Error checking CSV file: {e}")
+            print(f"Error checking CSV file: {e}")
             return False
     
     def get_table_info(self):
@@ -85,7 +85,7 @@ class DateDimLoader:
             table_exists = cursor.fetchone()[0] > 0
             
             if not table_exists:
-                print("❌ Table date_dim does not exist in fahasa_dw")
+                print("Table date_dim does not exist in fahasa_dw")
                 cursor.close()
                 return False
             
@@ -97,18 +97,18 @@ class DateDimLoader:
             cursor.execute("DESCRIBE date_dim")
             columns = cursor.fetchall()
             
-            print(f"📊 Current rows in date_dim: {current_count:,}")
-            print(f"📋 Table structure: {len(columns)} columns")
+            print(f"Current rows in date_dim: {current_count:,}")
+            print(f"Table structure: {len(columns)} columns")
             
             # Show column names
             column_names = [col[0] for col in columns]
-            print(f"🏷️  Columns: {', '.join(column_names[:5])}...")
+            print(f"Columns: {', '.join(column_names[:5])}...")
             
             cursor.close()
             return True
             
         except Exception as e:
-            print(f"❌ Error getting table info: {e}")
+            print(f"Error getting table info: {e}")
             traceback.print_exc()
             return False
     
@@ -122,21 +122,21 @@ class DateDimLoader:
             current_count = cursor.fetchone()[0]
             
             if current_count > 0:
-                print(f"🗑️  Clearing {current_count:,} existing records...")
+                print(f"Clearing {current_count:,} existing records...")
                 cursor.execute("DELETE FROM date_dim")
-                print(f"✅ Cleared {cursor.rowcount:,} records")
+                print(f"Cleared {cursor.rowcount:,} records")
                 
                 # Reset auto_increment
                 cursor.execute("ALTER TABLE date_dim AUTO_INCREMENT = 1")
-                print("🔄 Reset AUTO_INCREMENT to 1")
+                print("Reset AUTO_INCREMENT to 1")
             else:
-                print("📭 Table is already empty")
+                print("Table is already empty")
             
             cursor.close()
             return True
             
         except Exception as e:
-            print(f"❌ Error clearing table: {e}")
+            print(f"Error clearing table: {e}")
             traceback.print_exc()
             return False
     
@@ -156,7 +156,7 @@ class DateDimLoader:
             ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
             
-            print("📥 Loading CSV data...")
+            print("Loading CSV data...")
             
             # Read and insert data
             inserted_count = 0
@@ -170,7 +170,7 @@ class DateDimLoader:
                     try:
                         # Parse row data
                         if len(row) != 18:
-                            print(f"⚠️  Row {row_num}: Invalid column count {len(row)}, expected 18")
+                            print(f"Row {row_num}: Invalid column count {len(row)}, expected 18")
                             continue
                         
                         # Convert data types
@@ -209,10 +209,10 @@ class DateDimLoader:
                             batch_data.clear()
                             
                             if inserted_count % 5000 == 0:
-                                print(f"   📊 Inserted {inserted_count:,} records...")
+                                print(f"   Inserted {inserted_count:,} records...")
                     
                     except Exception as e:
-                        print(f"⚠️  Row {row_num} error: {e}")
+                        print(f"Row {row_num} error: {e}")
                         continue
                 
                 # Insert remaining batch
@@ -220,13 +220,13 @@ class DateDimLoader:
                     cursor.executemany(insert_sql, batch_data)
                     inserted_count += len(batch_data)
             
-            print(f"✅ Successfully loaded {inserted_count:,} records")
+            print(f"Successfully loaded {inserted_count:,} records")
             
             cursor.close()
             return inserted_count
             
         except Exception as e:
-            print(f"❌ Error loading CSV data: {e}")
+            print(f"Error loading CSV data: {e}")
             traceback.print_exc()
             return 0
     
@@ -259,14 +259,14 @@ class DateDimLoader:
             """)
             year_counts = cursor.fetchall()
             
-            print("\n📊 DATA VERIFICATION:")
-            print(f"   📅 Total records: {total_count:,}")
+            print("\nDATA VERIFICATION:")
+            print(f"   Total records: {total_count:,}")
             
             if date_range[0] and date_range[1]:
-                print(f"   📆 Date range: {date_range[0]} to {date_range[1]}")
+                print(f"   Date range: {date_range[0]} to {date_range[1]}")
             
             if year_counts:
-                print("   📈 Sample year counts:")
+                print("   Sample year counts:")
                 for year, count in year_counts:
                     print(f"      {year}: {count} days")
             
@@ -281,25 +281,25 @@ class DateDimLoader:
             duplicates = cursor.fetchall()
             
             if duplicates:
-                print("   ⚠️  Found duplicate dates:")
+                print("   Found duplicate dates:")
                 for date, count in duplicates:
                     print(f"      {date}: {count} times")
             else:
-                print("   ✅ No duplicate dates found")
+                print("   No duplicate dates found")
             
             cursor.close()
             return total_count > 0
             
         except Exception as e:
-            print(f"❌ Error verifying data: {e}")
+            print(f"Error verifying data: {e}")
             traceback.print_exc()
             return False
     
     def run_load(self):
         """Execute complete load process"""
-        print("🗓️  FAHASA DATE DIMENSION LOADER")
+        print("FAHASA DATE DIMENSION LOADER")
         print("=" * 50)
-        print(f"⏰ Start time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"Start time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print("=" * 50)
         
         try:
@@ -316,13 +316,13 @@ class DateDimLoader:
                 return False
             
             # Step 4: Confirm operation
-            response = input("\n❓ Clear existing data and load CSV? (y/N): ").strip().lower()
+            response = input("\nClear existing data and load CSV? (y/N): ").strip().lower()
             if response not in ['y', 'yes']:
-                print("❌ Operation cancelled by user")
+                print("Operation cancelled by user")
                 return False
             
             # Begin transaction
-            print("\n🔄 Starting transaction...")
+            print("\nStarting transaction...")
             
             # Step 5: Clear existing data
             if not self.clear_existing_data():
@@ -332,29 +332,29 @@ class DateDimLoader:
             # Step 6: Load CSV data
             inserted_count = self.load_csv_data()
             if inserted_count == 0:
-                print("❌ No data loaded, rolling back...")
+                print("No data loaded, rolling back...")
                 self.conn.rollback()
                 return False
             
             # Step 7: Verify loaded data
             if not self.verify_data():
-                print("⚠️  Data verification failed, but continuing...")
+                print("Data verification failed, but continuing...")
             
             # Commit transaction
             self.conn.commit()
-            print(f"\n✅ TRANSACTION COMMITTED!")
+            print(f"\nTRANSACTION COMMITTED!")
             
-            print(f"\n🎉 DATE DIMENSION LOAD COMPLETED!")
-            print(f"📊 Total records loaded: {inserted_count:,}")
-            print(f"⏰ End time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"\nDATE DIMENSION LOAD COMPLETED!")
+            print(f"Total records loaded: {inserted_count:,}")
+            print(f"End time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
             
             return True
             
         except Exception as e:
-            print(f"\n❌ Load process failed: {e}")
+            print(f"\nLoad process failed: {e}")
             if self.conn:
                 self.conn.rollback()
-                print("🔄 Transaction rolled back")
+                print("Transaction rolled back")
             traceback.print_exc()
             return False
         finally:
@@ -362,7 +362,7 @@ class DateDimLoader:
 
 def main():
     """Main function for standalone execution"""
-    print("🗓️  LOAD DATE DIMENSION FROM CSV")
+    print("LOAD DATE DIMENSION FROM CSV")
     print("Loading date_dim.csv → fahasa_dw.date_dim")
     print()
     
@@ -370,9 +370,9 @@ def main():
     success = loader.run_load()
     
     if success:
-        print("\n✅ Date dimension loaded successfully!")
+        print("\nDate dimension loaded successfully!")
     else:
-        print("\n❌ Date dimension load failed!")
+        print("\nDate dimension load failed!")
     
     return success
 
